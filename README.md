@@ -3,7 +3,6 @@
 <!------------------- <title>EpiSAFARI</title> ---->
 <div style="text-align:center"><img src="episafari_logo.png" alt="Could not load logo." width="1000" align="center"></div>
 <h1>EpiSAFARI</h1>
-<br><br>
 EpiSAFARI is a command line tool for detection of signal features from the functional genomics signal profiles. <br><br>
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 - Signal Profile in bedGraph format, <br>
