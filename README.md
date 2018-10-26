@@ -113,7 +113,6 @@ cd hg19_36bp <br>
 wget -c http://archive.gersteinlab.org/proj/MUSIC/multimap_profiles/hg19/hg19_36bp.tar.bz2 <br>
 tar -xvjf hg19_36bp.tar.bz2 <br>
 cd .. <br>
-
 # bedGraph files: <br>
 ./bin/EpiSAFARI -get_significant_extrema bedGraphs 1000 5 1.2 125 hg19_36bp 1.2<br>
 # mapped read files: <br>
