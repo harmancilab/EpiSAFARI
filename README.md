@@ -23,7 +23,9 @@ You can download EpiSAFARI C code <a href="https://github.com/gersteinlab/EpiSAF
 You need to have GSL libraries installed for building EpiSAFARI. If they are not installed, type:
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <i><font face="courier">
-sudo yum -y install gsl.x86_64<br>
+sudo yum -y install gsl-devel
+sudo yum -y install gsl
+<br>
 </font></i>
 </div><br>
 
