@@ -104,6 +104,7 @@ ls processed_reads/*.bin | xargs -Ifiles gzip files <br>
 </font></i>
 </div><br>
 
+<h2>Feature Detection</h2>
 We next do feature identification. We first download the multi-mappability signal then identify the features:<br>
 
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
@@ -120,6 +121,7 @@ cd .. <br>
 </font></i>
 </div><br>
 
+<h2>Feature Annotation</h2>
 We finally perform feature annotation. We first download the GENCODE gene annotation gff file:<br>
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <i><font face="courier">
