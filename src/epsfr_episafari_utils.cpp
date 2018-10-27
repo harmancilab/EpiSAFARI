@@ -449,6 +449,11 @@ void annotate_features(char* signal_directory, char* gff_fp, int l_half_prom, ch
 	char chr_ids_fp[1000];
 	sprintf(chr_ids_fp, "%s/chr_ids.txt", signal_directory);
 	vector<char*>* chr_ids = buffer_file(chr_ids_fp);
+	if (chr_ids == NULL)
+	{
+		fprintf(stderr, "Could not load chromosome id's from %s.\n", chr_ids_fp);
+		exit(0);
+	}
 
 	// Load the gff file.
 	vector<t_annot_region*>* annotations = load_annotation(gff_fp, l_half_prom);
