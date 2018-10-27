@@ -97,10 +97,8 @@ l_win=1000<br>
 <br>
 # bedGraph files: <br>
 ./bin/EpiSAFARI -bspline_encode bedGraphs ${n_spline_coeffs} ${spline_order} ${max_max_err} ${max_avg_err} ${l_win}<br>
-ls bedGraphs/*.bin | xargs -Ifiles gzip files <br>
 # mapped read files: <br>
 ./bin/EpiSAFARI -bspline_encode processed_reads/dedup ${n_spline_coeffs} ${spline_order} ${max_max_err} ${max_avg_err} ${l_win}<br>
-ls processed_reads/*.bin | xargs -Ifiles gzip files <br>
 </font></i>
 </div><br>
 
@@ -135,6 +133,15 @@ l_promoter=1000 <br><br>
 </font></i>
 </div><br>
 
+Finally, you can also add ENCODE2 transcription factor binding annotations. We have built the GFF file for the uniformly processed peaks of 690 transcription factors from the ENCODE2 cell lines that you can download and use to annotate the features:
+<div style="padding:8px;background-color:#ddd;line-height:1.4;">
+<i><font face="courier">
+wget http://harmancilab.org/tools/EpiSAFARI/wgEncodeAwgTfbs.gff.gz <br>
+<br>
+./bin/EpiSAFARI -annotate_features bedGraphs wgEncodeAwgTfbs.gff.gz 0 annotated_features.bed <br>
+</font></i>
+</div><br>
+
 <h2>Output format</h2>
 EpiSAFARI outputs the identified features to files named "significant_valleys_[chrosome id].bed" for each chromosome.<br><br>
 
@@ -153,7 +160,7 @@ This is an extended bed file with following columns:<br>
 <li>[Maximum multi-mappability signal]: MAximum multi-mappability signal on the valley </li>
 <li>[Left hill fraction]: Fraction of the nucleotides on the left hill</li>
 <li>[Right hill fraction]: Fraction of the nucleotides on the right hill</li>
-<li>[Annotation]: Annotated element's name and type of the element (gene, exon, transcript, promoter)</li>
+<li>[Annotation]: Annotated element's name and type of the element (gene, exon, transcript, promoter, TF_peak)</li>
 </font></i>
 </div><br>
 
