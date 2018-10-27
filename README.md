@@ -16,9 +16,9 @@ and outputs:<br>
 The output is formatted as an extended BED file with multiple columns. Please refer below for the specification of output file format.
 
 <h2>Download and Installation</h2>
-You can download EpiSAFARI C code <a href="https://github.com/gersteinlab/EpiSAFARI/archive/master.zip">here</a>. 
+You can download EpiSAFARI code by clicking on the green "Clone or Download" button and downloading zip or by checking out via git. After that, navigate to the checkout (or download) directory. If you downloaded the zip file of the source, unzip it using "unzip master.zip".<br><br>
 
-You need to have g++ and GSL and zLib libraries installed for building EpiSAFARI. If they are not installed, type:
+You need to have g++, GSL, and zLib libraries installed for building EpiSAFARI. If they are not installed, type:
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <i><font face="courier">
 sudo yum -y install gsl gsl-devel gcc-c++ zlib zlib-devel
@@ -26,17 +26,16 @@ sudo yum -y install gsl gsl-devel gcc-c++ zlib zlib-devel
 </font></i>
 </div><br>
 
-This should install the necessary GSL libraries for building EpiSAFARI correctly.
+This should install the necessary GSL libraries for building EpiSAFARI correctly.<br><br>
 
+Now EpiSAFARI can be built using:<br>
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <i><font face="courier">
-unzip master.zip<br>
-cd EpiSAFARI<br>
 make clean<br>
 make
 </font></i>
 </div><br>
-to build EpiSAFARI. The executable is located under directory <font face="courier">bin/</font>. 
+The executable is located under directory <font face="courier">bin/</font>. 
 
 It may be useful to install <a href="http://samtools.sourceforge.net/">samtools</a> for processing BAM files.
 
