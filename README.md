@@ -75,7 +75,7 @@ samtools view wgEncodeBroadHistoneGm12878H3k04me1StdAlnRep1V2.bam | EpiSAFARI -p
 </div><br>
 If there are multiple replicates of reads to be pooled, they can be done at once or separately. If done separately, EpiSAFARI pools the reads automatically and uses the total signal profile in the analyses.<br><br>
 
-We strongly suggest removing duplicates from the reads. This decreases feature identification time quite much:<br>
+We strongly recommend removing duplicates from the reads. This decreases feature identification time quite much:<br>
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <i><font face="courier">
 mkdir processed_reads/sorted processed_reads/dedup <br>
