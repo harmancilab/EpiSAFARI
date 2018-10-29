@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "epsfr_utils.h"
 #include <gsl/gsl_bspline.h>
 #include <gsl/gsl_multifit.h>
 #include <gsl/gsl_rng.h>
@@ -75,20 +76,41 @@ bool bsplinefit(int n_data_pts,
   gsl_bspline_knots_uniform(dx[0], dx[n_data_pts-1], bw);
 
   /* construct the fit matrix X */
-  for (i = 0; i < (unsigned int)n_data_pts; ++i)
-    {
-      double xi = gsl_vector_get(x, i);
+	FILE* f_splines = NULL;
+	if (__DUMP_POLYFIT_MESSAGES__)
+	{
+		f_splines = fopen("splines.txt", "a");
+	}
 
-      /* compute B_j(xi) for all j */
-      gsl_bspline_eval(xi, B, bw);
+	for (i = 0; i < (unsigned int)n_data_pts; ++i)
+	{
+		double xi = gsl_vector_get(x, i);
 
-      /* fill in row i of X */
-      for (j = 0; j < ncoeffs; ++j)
-        {
-          double Bj = gsl_vector_get(B, j);
-          gsl_matrix_set(X, i, j, Bj);
-        }
-    }
+		/* compute B_j(xi) for all j */
+		gsl_bspline_eval(xi, B, bw);
+
+		/* fill in row i of X */
+		for (j = 0; j < ncoeffs; ++j)
+		{
+			double Bj = gsl_vector_get(B, j);
+			gsl_matrix_set(X, i, j, Bj);
+
+			if (__DUMP_POLYFIT_MESSAGES__)
+			{
+				fprintf(f_splines, "%lf\t", Bj);
+			}
+		}
+
+		if (__DUMP_POLYFIT_MESSAGES__)
+		{
+			fprintf(f_splines, "\n");
+		}
+	} // i loop.
+
+	if (__DUMP_POLYFIT_MESSAGES__)
+	{
+		fclose(f_splines);
+	}
 
   /* do the fit */
   gsl_multifit_linear(X,  y, c, cov, &chisq, mw);
