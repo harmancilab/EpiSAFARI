@@ -810,18 +810,18 @@ if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
 	{
 		fprintf(stderr, "\nSmoothing spline coded profile using window length of %d.\n", l_med_filt_win);
 
-		double min_val = 1000 * 1000 * 1000;
-		for (int i = 1; i < l_track; i++)
-		{
-			if (spline_fit_profile[i] < min_val)
-			{
-				min_val = spline_fit_profile[i];
-			}
-		} // i loop.
+		//double min_val = 1000 * 1000 * 1000;
+		//for (int i = 1; i < l_track; i++)
+		//{
+		//	if (spline_fit_profile[i] < min_val)
+		//	{
+		//		min_val = spline_fit_profile[i];
+		//	}
+		//} // i loop.
 
 		for (int i = 1; i < l_track; i++)
 		{
-			spline_fit_profile[i] -= min_val;
+			//spline_fit_profile[i] -= min_val;
 			spline_fit_profile[i] *= 100;
 		}
 
@@ -833,7 +833,7 @@ if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
 		for (int i = 1; i < l_track; i++)
 		{
 			med_smoothed_profile[i] /= 100;
-			med_smoothed_profile[i] += min_val;
+			//med_smoothed_profile[i] += min_val;
 		}
 
 		delete[] spline_fit_profile;
