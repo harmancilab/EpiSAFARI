@@ -148,7 +148,7 @@ wget http://harmancilab.org/tools/EpiSAFARI/wgEncodeAwgTfbs.gff.gz <br>
 <h2>Sparse Mode</h2>
 EpiSAFARI can also process sparse signals. Examples of these include DNA methylation data, which happens only at cytosine nucleotides. For this, run EpiSAFARI with sparse_data=1 to enable sparse signal smoothing. We also turn on post-median filter on.<br><br>
 
-We demonstrate this option on a DNA methylation data from Roadmap Epigenome Project:
+We demonstrate this option on a DNA methylation dataset from Roadmap Epigenome Project:
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <i><font face="courier">
 wget -c ftp://ftp.ncbi.nlm.nih.gov/pub/geo/DATA/roadmapepigenomics/by_experiment/Bisulfite-Seq/brain_hippocampus_middle/GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig.gz <br>
