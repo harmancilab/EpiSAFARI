@@ -6,6 +6,7 @@
 #include "epsfr_nomenclature.h"
 #include "epsfr_ansi_string.h"
 #include "epsfr_min_max_utils.h"
+#include "epsfr_filter_utils.h"
 #include "epsfr_nomenclature.h"
 #include "epsfr_utils.h"
 #include "epsfr_annot_region_tools.h"
@@ -17,8 +18,7 @@
 	#include <unistd.h> 
 #endif
 
-//#ifdef _WIN32
-//#endif
+bool __DUMP_EPISAFARI_UTILS_MESSAGES__ = false;
 
 #define MAX(x, y) (((x)>(y))?(x):(y))
 #define MIN(x, y) (((x)<(y))?(x):(y))
@@ -531,77 +531,43 @@ void annotate_features(char* signal_directory, char* gff_fp, int l_half_prom, ch
 }
 
 
-void get_summit_dip_posns_per_ER(double* signal_profile, int l_profile,
-	double* multi_mapp_signal, int l_multi_map_signal, double max_multi_mapp_val,
-	int ER_start, int ER_end,
-	int l_trough_win,
-	double minimum_summit_height_2_max_summit_ratio,
-	double maximum_dip_height_2_max_summit_ratio,
-	vector<int>* selected_minima_posns,
-	vector<int>* selected_maxima_posns)
+// Select changing points to use in the polyfit.
+void select_points_of_interest_per_RD_signal_profile(double* signal_profile,
+	int start_i, int end_i,
+	int min_dist_between_cons_pts,
+	vector<double>* x_vec, vector<double>* y_vec,
+	bool sparse_signal)
 {
-	vector<t_extrema_node*>* maxima_nodes = new vector<t_extrema_node*>();
-	vector<t_extrema_node*>* minima_nodes = new vector<t_extrema_node*>();
-	int* derivative_map = new int[ER_end - ER_start + 2];
-	memset(derivative_map, 0, sizeof(int) * (ER_end - ER_start + 2));
-	get_extrema_per_plateaus(&signal_profile[ER_start], ER_end - ER_start + 1, maxima_nodes, minima_nodes, derivative_map, 0);
+	//fprintf(stderr, "Selecting POI for signal track in [%d-%d] with maximum distance of points %d\n", start_i, end_i, max_dist_between_cons_pts);
 
-	if ((int)maxima_nodes->size() == 0 ||
-		(int)minima_nodes->size() == 0)
+	// Update the points at each change in signal.
+	double cur_y = signal_profile[start_i];
+	double cur_x = start_i;
+	//x_vec->push_back(start_i);
+	//y_vec->push_back(cur_y);
+	for (int i = start_i; i <= end_i; i++)
 	{
-		return;
-	}
+		// If sparse signal is requested, make sure the current signal is not 0, i.e. sparsity. We do not want to use missing regions for spling-fitting.
+		bool sparsity_check = (!sparse_signal || (sparse_signal && signal_profile[i] != 0));
 
-	// Sort the minima with increasing height then take the top minima.
-	sort(maxima_nodes->begin(), maxima_nodes->end(), sort_extremas_per_decreasing_height);
-
-	vector<t_extrema_node*>* top_maxima = new vector<t_extrema_node*>();
-	for (int i_max = 0; i_max < (int)maxima_nodes->size(); i_max++)
-	{
-		// Make sure there is good height at this extrema.
-		if (maxima_nodes->at(i_max)->height_at_extrema >= maxima_nodes->at(0)->height_at_extrema * minimum_summit_height_2_max_summit_ratio)
+		// If sparsity check holds, 
+		if (sparsity_check &&
+			(sparse_signal ||
+				cur_y != signal_profile[i] ||
+				cur_x + min_dist_between_cons_pts <= i))
 		{
-			top_maxima->push_back(maxima_nodes->at(i_max));
+			// Update the current point.
+			cur_y = signal_profile[i];
+			cur_x = i;
+
+			x_vec->push_back(i);
+			y_vec->push_back(signal_profile[i]);
 		}
-	} // i_max loop.
-
-	  // Sort the top maxima with respect to location.
-	sort(top_maxima->begin(), top_maxima->end(), sort_extremas_per_posn);
-
-	// Sort the minima with respect to position, then find the lowest minima between each selected extrema.
-	sort(minima_nodes->begin(), minima_nodes->end(), sort_extremas_per_height);
-
-	// The idea is to break the ER into regions between maxima, then find the lowest dip in each segment.
-	for (int i_max = 0; i_max < (int)top_maxima->size() - 1; i_max++)
-	{
-		// find the smallest dip.
-		bool found_a_min = false;
-		for (int i_min = 0; i_min < (int)minima_nodes->size(); i_min++)
+		else
 		{
-			// Is this minima between the maxima nodes and satisfy maximum height criterion?
-			if (minima_nodes->at(i_min)->extrema_posn > top_maxima->at(i_max)->extrema_posn &&
-				minima_nodes->at(i_min)->extrema_posn < top_maxima->at(i_max + 1)->extrema_posn &&
-				minima_nodes->at(i_min)->height_at_extrema < MAX(top_maxima->at(i_max)->height_at_extrema, top_maxima->at(i_max + 1)->height_at_extrema) * maximum_dip_height_2_max_summit_ratio)
-			{
-				// We added
-				found_a_min = true;
-				selected_minima_posns->push_back(minima_nodes->at(i_min)->extrema_posn + ER_start);
-				break;
-			}
-		} // i_min loop.
-
-		if (found_a_min)
-		{
-			selected_maxima_posns->push_back(top_maxima->at(i_max)->extrema_posn + ER_start);
-			selected_maxima_posns->push_back(top_maxima->at(i_max + 1)->extrema_posn + ER_start);
+			// Do nothing: Do not update the data vectors.
 		}
-	} // i_max loop.
-
-	delete_extrema_nodes(minima_nodes);
-	delete_extrema_nodes(maxima_nodes);
-
-	// Free the current decomposition.
-	delete[] derivative_map;
+	} // i loop.
 }
 
 void bspline_encode_mapped_read_profile(char* signal_dir,
@@ -611,9 +577,12 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 										int bspline_order,
 										int min_n_pts_2_encode,
 										int max_dist_between_cons_pts,
-										double max_max_err, 
+										double max_top_err, 
 										double max_avg_err,
-										int l_win)
+										int l_win,
+										bool sparse_profile,
+										double top_err_perc_frac,
+										int l_med_filt_win)
 {
 	double* coeff = new double[n_spline_coeff + 2];
 
@@ -648,13 +617,18 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 
 	//int max_dist_between_cons_pts = 50;
 
+	//double top_err_perc_frac = 0.95;
+
 	int start_i = 1;
 	while (start_i < l_track)
 	{
 		double tot_sig = 0;
 		for (int i = start_i; i < start_i + l_win; i++)
 		{
-			tot_sig += signal_profile[i];
+			if (i < l_track)
+			{
+				tot_sig += signal_profile[i];
+			}
 		} // i loop.
 
 		// If there is not signal in this window, do not process.
@@ -670,7 +644,7 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 		select_points_of_interest_per_RD_signal_profile(signal_profile,
 			start_i, end_i,
 			max_dist_between_cons_pts,
-			x_vec, y_vec);
+			x_vec, y_vec, sparse_profile);
 
 		// Allocate and generate the x and y data.
 		//fprintf(stderr, "Generated %d data points.\n", x_vec->size());
@@ -682,6 +656,9 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 			double* x = new double[n_data_points + 2];
 			double* y = new double[n_data_points + 2];
 			double* reconst_y = new double[n_data_points + 2];
+			memset(reconst_y, 0, sizeof(double) * (n_data_points + 1));
+
+			double top_perc_err = 0;
 
 			double total_err = 0;
 			double max_err = 0;
@@ -689,19 +666,27 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 			int cur_bspline_order = bspline_order;
 
 			// Copy vectors.
-			//FILE* f_input = open_f("data.txt", "w");
 			for (int i_l = 0; i_l < (int)x_vec->size(); i_l++)
 			{
 				x[i_l] = (x_vec->at(i_l) - start_i);
 				y[i_l] = y_vec->at(i_l);
-
-				//fprintf(f_input, "%lf\t%lf\n", x[i_l], y[i_l]);
 			} // i_l loop.
-			//fclose(f_input);
+
+if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
+{
+			char data_win_fp[1000];
+			sprintf(data_win_fp, "data_%d.txt", start_i);
+			FILE* f_input = open_f(data_win_fp, "w");
+			for (int i_l = 0; i_l < (int)x_vec->size(); i_l++)
+			{
+				fprintf(f_input, "%lf\t%lf\n", x[i_l], y[i_l]);
+			} // i_l loop.
+			fclose(f_input);
+}
 
 			while (total_err == 0 ||
 				total_err / n_data_points > max_avg_err ||
-				max_err > max_max_err)
+				top_perc_err > max_top_err)
 			{
 				if (n_data_points < cur_n_spline_coeff)
 				{
@@ -715,10 +700,9 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 				// Do fitting.					
 				bsplinefit(n_data_points, cur_n_spline_coeff, cur_bspline_order, x, y, reconst_y, coeff);
 
-				// Reconstruct and dump.
-				//FILE* f_reconst = open_f("reconstructed.txt", "w");
-
 				// compute the errors only on the fit locations.
+				vector<double>* errors = new vector<double>();
+				total_err = 0;
 				for (int i_l = 0; i_l < n_data_points; i_l++)
 				{
 					double cur_reconst_y = reconst_y[i_l];
@@ -728,12 +712,37 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 						cur_reconst_y = 0;
 					}
 
-					total_err += fabs(cur_reconst_y - y[i_l]);
-					max_err = MAX(max_err, fabs(cur_reconst_y - y[i_l]));
-					//fprintf(f_reconst, "%lf\t%lf\n", x[i_l], cur_reconst_y);
+					double cur_err = fabs(cur_reconst_y - y[i_l]);
+					total_err += cur_err;
+					max_err = MAX(max_err, cur_err);
+					errors->push_back(cur_err);
 				} // i_l loop.
-				//fclose(f_reconst);
-				//fprintf(stderr, "\n");
+
+				sort(errors->begin(), errors->end());
+
+				int top_err_perc_index = (int)(errors->size() * top_err_perc_frac);
+				if (top_err_perc_index >= (int)errors->size())
+				{
+					top_err_perc_index = (int)errors->size() - 1;
+				}
+
+				top_perc_err = errors->at(top_err_perc_index);
+				delete errors;
+
+				  // Save reconstructured window.
+if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
+{
+					char recons_fp[1000];
+					sprintf(recons_fp, "recon_%d.txt", start_i);
+					FILE* f_reconst = open_f(recons_fp, "w");
+					for (int i_l = 0; i_l < n_data_points; i_l++)
+					{
+						double cur_reconst_y = reconst_y[i_l];
+						fprintf(f_reconst, "%lf\t%lf\n", x[i_l], cur_reconst_y);
+					} // i_l loop.
+					fclose(f_reconst);
+					//fprintf(stderr, "\n");
+}
 
 				// Add to the spline fit profile 
 				for (int i_l = 0; i_l < n_data_points - 1; i_l++)
@@ -743,18 +752,36 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 					{
 						spline_fit_profile[i + start_i] = reconst_y[i_l];
 					} // i loop.
+				} // i_l loop.
+
+				// To the left of first control point and to the right of the last control point.
+				for (int i = 0; i <= (int)x[0]; i++)
+				{
+					spline_fit_profile[i + start_i] = reconst_y[0];
 				} // i loop.
 
-				fprintf(stderr, "Window %d-%d: %d coefficients, spline order %d, %d POIs: Error: %lf, Avg Error: %lf, Max Error: %lf                 \r",
+				for (int i = (int)x[n_data_points-1]; i < l_win; i++)
+				{
+					if (i + start_i < l_track)
+					{
+						spline_fit_profile[i + start_i] = reconst_y[n_data_points - 1];
+					}
+				} // i loop.
+
+				fprintf(stderr, "Window %d-%d: %d coefficients, spline order %d, %d POIs: Error: %lf, Avg Error: %lf, Top Error @ %d: %lf                 \r",
 					start_i, end_i,
 					cur_n_spline_coeff,
 					cur_bspline_order,
 					(int)x_vec->size(),
-					total_err, total_err / n_data_points, max_err);
+					total_err, 
+					total_err / n_data_points, 
+					top_err_perc_index, top_perc_err);
 
-				// Increase the # of coefficients and the bpline order.
+				// Increase the # of coefficients and the bpline order. This tunes the knot points that are uniformly distributed. This part can be potentially optimized.
 				cur_n_spline_coeff += 10;
-				cur_bspline_order += 2;
+
+				// Do not change the order, this may create overfitting, which is not what we want.
+				//cur_bspline_order += 2;
 			} // spline fitting loop.
 
 			delete[] reconst_y;
@@ -763,10 +790,12 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 		}
 		else
 		{
+			fprintf(stderr, "No fit @ %s:%d-%d\n", chr_id, start_i, end_i);
+
 			// Copy the signal profile in this window directly.
 			for (int i = start_i; i < end_i; i++)
 			{
-				spline_fit_profile[i + start_i] = signal_profile[i];
+				spline_fit_profile[i] = signal_profile[i];
 			} // i loop.
 		}
 
@@ -775,6 +804,41 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 
 		start_i += l_win;
 	} // l_win loop.
+
+	// Median smooth the data.
+	if (l_med_filt_win > 0)
+	{
+		fprintf(stderr, "\nSmoothing spline coded profile using window length of %d.\n", l_med_filt_win);
+
+		double min_val = 1000 * 1000 * 1000;
+		for (int i = 1; i < l_track; i++)
+		{
+			if (spline_fit_profile[i] < min_val)
+			{
+				min_val = spline_fit_profile[i];
+			}
+		} // i loop.
+
+		for (int i = 1; i < l_track; i++)
+		{
+			spline_fit_profile[i] -= min_val;
+			spline_fit_profile[i] *= 100;
+		}
+
+		double* med_smoothed_profile = median_filter_data(spline_fit_profile,
+														l_track,
+														l_med_filt_win,
+														-1000);
+
+		for (int i = 1; i < l_track; i++)
+		{
+			med_smoothed_profile[i] /= 100;
+			med_smoothed_profile[i] += min_val;
+		}
+
+		delete[] spline_fit_profile;
+		spline_fit_profile = med_smoothed_profile;
+	}
 
 	fprintf(stderr, "\nFinished, saving spline coded profile.\n");
 	char encoded_profile_bin_fp[1000];
@@ -787,7 +851,11 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 	compressFile(encoded_profile_bin_fp, comp_encoded_profile_bin_fp);
 
 	// Dump the bedgraph.
-	floorize_profile(spline_fit_profile, l_track);
+	//for (int i = 1; i < l_track; i++)
+	//{
+	//	spline_fit_profile[i] *= 10;
+	//}
+	//floorize_profile(spline_fit_profile, l_track);
 	char spline_bgr_fp[1000];
 	sprintf(spline_bgr_fp, "%s/spline_coded_%s.bgr", signal_dir, chr_id);
 	dump_bedGraph_per_per_nucleotide_binary_profile(spline_fit_profile, l_track, chr_id, spline_bgr_fp);

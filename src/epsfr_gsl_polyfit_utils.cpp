@@ -117,7 +117,15 @@ bool bsplinefit(int n_data_pts,
 		xi = dx[i];
         gsl_bspline_eval(xi, B, bw);
         gsl_multifit_linear_est(B, c, cov, &yi, &yerr);
-		reconst_y[i] = yi;
+		
+		if (gsl_finite(yi))
+		{
+			reconst_y[i] = yi;
+		}
+		else
+		{
+			reconst_y[i] = 0;
+		}
         //printf("%f %f\n", xi, yi);
 	}
   }
@@ -137,34 +145,4 @@ bool bsplinefit(int n_data_pts,
 	
 }
 
-// Select changing points to use in the polyfit.
-void select_points_of_interest_per_RD_signal_profile(double* signal_profile, 
-													int start_i, int end_i, 
-													int max_dist_between_cons_pts, 
-													vector<double>* x_vec, vector<double>* y_vec)
-{
-	//fprintf(stderr, "Selecting POI for signal track in [%d-%d] with maximum distance of points %d\n", start_i, end_i, max_dist_between_cons_pts);
 
-	// Update the points at each change in signal.
-	double cur_y = signal_profile[start_i];
-	double cur_x = start_i;
-	x_vec->push_back(start_i);
-	y_vec->push_back(cur_y);
-	for(int i = start_i; i <= end_i; i++)
-	{
-		if(cur_y != signal_profile[i] ||
-			cur_x + max_dist_between_cons_pts <= i)
-		{
-			// Update the current point.
-			cur_y = signal_profile[i];
-			cur_x = i;
-
-			x_vec->push_back(i);
-			y_vec->push_back(signal_profile[i]);
-		}
-		else
-		{
-			// Do nothing: Do not update the data vectors.
-		}
-	} // i loop.
-}

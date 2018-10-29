@@ -27,11 +27,11 @@ Input Data Processing:\n\
 	BedGraph Processing:\n\
 		-separate_bedGraph_2_chromosomes [bedGraph file path] [Output directory]\n\
 Signal Feature Detection:\n\
-	-bspline_encode [bedGraph/processed reads directory path] [# Spline Coefficients] [Spline Order (>=2)] [Max max error] [Max avg error] [window length]\n\n\
+	-bspline_encode [bedGraph/processed reads directory path] [# Spline Coefficients] [Spline Order (>=2)] [Max max error] [Max avg error] [window length] [Sparse data flag (0/1)] [Post Median Filter Length]\n\
 	-get_significant_extrema_per_signal_profile [Binary signal profile file path] [chr id] \
 [Maximum signal at trough] [Minimum signal at summit] \
 [Minimum summit2trough ratio per trough] [Maximum summit2trough distance in bps] \
-[Multi-mappability profile directory] [Maximum multimapp signal at trough]\n\n\
+[Multi-mappability profile directory] [Maximum multimapp signal at trough]\n\
 Feature Annotation:\n\
 	-annotate_features [Signal directory] [GFF file path] [Half promoter length] [Output file path]\n\n",	argv[0]);
 }
@@ -471,6 +471,11 @@ int main(int argc, char* argv[])
 		char chr_ids_list_fp[1000];
 		sprintf(chr_ids_list_fp, "%s/chr_ids.txt", signal_data_dir);
 		vector<char*>* chr_ids = buffer_file(chr_ids_list_fp);
+		if (chr_ids == NULL)
+		{
+			fprintf(stderr, "Could not load chromosome id's from %s.\n", chr_ids_list_fp);
+			exit(0);
+		}
 
 		// set the extrema statistics to be used in computing significance.
 		t_extrema_statistic_defition* extrema_statistic_defn = new t_extrema_statistic_defition();
@@ -510,9 +515,9 @@ int main(int argc, char* argv[])
 	} // -get_significant_extrema_per_signal_profile option.
 	else if (t_string::compare_strings(argv[1], "-bspline_encode"))
 	{
-		if (argc != 8)
+		if (argc != 10)
 		{
-			fprintf(stderr, "USAGE: %s -bspline_encode [bedGraph/processed reads directory path] [# Spline Coefficients] [Spline Order (>=2)] [Max max error] [Max avg error] [window length]\n", argv[0]);
+			fprintf(stderr, "USAGE: %s -bspline_encode [bedGraph/processed reads directory path] [# Spline Coefficients] [Spline Order (>=2)] [Max max error] [Max avg error] [window length] [Sparse data flag (0/1)] [Post Median Filter Length]\n", argv[0]);
 			exit(0);
 		}
 
@@ -522,63 +527,41 @@ int main(int argc, char* argv[])
 		double max_max_err = atof(argv[5]);
 		double max_avg_err = atof(argv[6]);
 		int l_win = atoi(argv[7]);
+		bool sparse_data_flag = (argv[8][0] == '1');
+		int l_med_filt_win = atoi(argv[9]);
 
 		char chr_ids_list_fp[1000];
 		sprintf(chr_ids_list_fp, "%s/chr_ids.txt", signal_dir);
 		vector<char*>* chr_ids = buffer_file(chr_ids_list_fp);
-
-		int l_frag = 200;
-		int min_n_pts_2_encode = 5;
-		int min_pt2pt_distance_in_bps = 50;
-
-		for (int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
+		if (chr_ids == NULL)
 		{
-			fprintf(stderr, "Encoding %s\n", chr_ids->at(i_chr));
-			bspline_encode_mapped_read_profile(signal_dir, chr_ids->at(i_chr), l_frag,
-				n_spline_coeff, bspline_order, min_n_pts_2_encode, min_pt2pt_distance_in_bps,
-				max_max_err, max_avg_err,
-				l_win);
-		} // i_chr loop.
-	} // -bspline_encode_mapped_read_profile option.
-	else if (t_string::compare_strings(argv[1], "-get_significant_extrema_per_signal_profile"))
-	{
-		if (argc != 10)
-		{
-			fprintf(stderr, "USAGE: %s -get_significant_extrema_per_signal_profile [Binary signal profile file path] [chr id] \
-[Maximum signal at trough] [Minimum signal at summit] \
-[Minimum summit2trough ratio per trough] [Maximum summit2trough distance in bps] \
-[Multi-mappability profile directory] [Maximum multimapp signal at trough]\n", argv[0]);
+			fprintf(stderr, "Could not load chromosome id's from %s.\n", chr_ids_list_fp);
 			exit(0);
 		}
 
-		char* bin_signal_fp = argv[2];
-		char* chr_id = argv[3];
-		double max_signal_at_trough = atof(argv[4]);
-		double min_signal_at_summit = atof(argv[5]);
-		double min_summit2trough_ratio_per_trough = atof(argv[6]);
-		int max_summit2trough_dist_in_bp = atoi(argv[7]);
-		char* multi_mapp_signal_profile_fp = argv[8];
-		double max_multimapp_signal_at_trough = atof(argv[9]);
+		int l_frag = 200;
+		int min_n_pts_2_encode = 2;
+		int min_pt2pt_distance_in_bps = 50;
 
-		// set the extrema statistics to be used in computing significance.
-		t_extrema_statistic_defition* extrema_statistic_defn = new t_extrema_statistic_defition();
-		extrema_statistic_defn->max_signal_at_trough = max_signal_at_trough;
-		extrema_statistic_defn->min_signal_at_summit = min_signal_at_summit;
-		extrema_statistic_defn->min_summit2trough_ratio_per_trough = min_summit2trough_ratio_per_trough;
-		extrema_statistic_defn->max_summit2trough_dist_in_bp = max_summit2trough_dist_in_bp;
-		extrema_statistic_defn->max_multimapp_signal_at_trough = max_multimapp_signal_at_trough;
+		double top_err_perc_frac = 0.90;
 
-		int l_profile = 0;
-		double* signal_profile = load_per_nucleotide_binary_profile(bin_signal_fp, l_profile);
-		fprintf(stderr, "Loaded %d long signal profile.\n", l_profile);
+		for (int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
+		{
+			if(sparse_data_flag)
+			{ 
+				fprintf(stderr, "Encoding %s (Sparse)\n", chr_ids->at(i_chr));
+			}
+			else
+			{
+				fprintf(stderr, "Encoding %s\n", chr_ids->at(i_chr));
+			}
 
-		int l_multimapp_profile = 0;
-		double* multi_mapp_signal = load_normalized_multimappability_profile(multi_mapp_signal_profile_fp, l_multimapp_profile);
-
-		get_significant_extrema_per_signal_profile(".", chr_id, signal_profile, l_profile,
-			multi_mapp_signal, l_multimapp_profile,
-			extrema_statistic_defn);
-	} // -get_significant_extrema_per_signal_profile option.
+			bspline_encode_mapped_read_profile(signal_dir, chr_ids->at(i_chr), l_frag,
+				n_spline_coeff, bspline_order, min_n_pts_2_encode, min_pt2pt_distance_in_bps,
+				max_max_err, max_avg_err,
+				l_win, sparse_data_flag, top_err_perc_frac, l_med_filt_win);
+		} // i_chr loop.
+	} // -bspline_encode_mapped_read_profile option.
 
 	//FILE* f_beacon = open_f("beacon.log", "a");
 	clock_t end_c = clock();

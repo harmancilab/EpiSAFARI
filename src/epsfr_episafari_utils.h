@@ -44,4 +44,25 @@ vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* 
 
 void annotate_features(char* signal_directory, char* gff_fp, int l_half_prom, char* op_fp);
 
+
+void select_points_of_interest_per_RD_signal_profile(double* signal_profile,
+	int start_i, int end_i,
+	int max_dist_between_cons_pts,
+	vector<double>* x_vec, vector<double>* y_vec,
+	bool sparse_signal);
+
+void bspline_encode_mapped_read_profile(char* signal_dir,
+	char* chr_id,
+	int l_frag,
+	int n_spline_coeff,
+	int bspline_order,
+	int min_n_pts_2_encode,
+	int max_dist_between_cons_pts,
+	double max_max_err,
+	double max_avg_err,
+	int l_win,
+	bool sparse_profile,
+	double top_err_perc_frac,
+	int l_med_filt_win);
+
 #endif // __EPISFR_UTILS__

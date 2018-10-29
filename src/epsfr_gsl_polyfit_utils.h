@@ -25,20 +25,4 @@ bool bsplinefit(int n_data_pts,
 				double* reconst_y, 
 				double *store);
 
-void select_points_of_interest_per_RD_signal_profile(double* signal_profile, 
-													int start_i, int end_i, 
-													int max_dist_between_cons_pts, 
-													vector<double>* x_vec, vector<double>* y_vec);
-
-void bspline_encode_mapped_read_profile(char* signal_dir,
-	char* chr_id,
-	int l_frag,
-	int n_spline_coeff,
-	int bspline_order,
-	int min_n_pts_2_encode,
-	int max_dist_between_cons_pts,
-	double max_max_err,
-	double max_avg_err,
-	int l_win);
-
 #endif
