@@ -92,7 +92,7 @@ vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* 
 	vector<t_extrema_node*>* maxima_nodes = new vector<t_extrema_node*>();
 	vector<t_extrema_node*>* minima_nodes = new vector<t_extrema_node*>();
 	int* derivative_map = new int[l_profile + 2];
-	memset(derivative_map, 0, sizeof(int) * l_profile);
+	memset(derivative_map, 0, sizeof(int) * (l_profile+1));
 	get_extrema_per_plateaus(signal_profile, l_profile, maxima_nodes, minima_nodes, derivative_map, 0);
 
 	fprintf(stderr, "Identified %d minima and %d maxima.\n", (int)minima_nodes->size(), (int)maxima_nodes->size());
@@ -613,7 +613,7 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 	//buffer_per_nucleotide_profile_no_buffer(mapped_reads_fp, l_frag, signal_profile, NULL, NULL, l_buff, l_track);
 
 	double* spline_fit_profile = new double[l_track + 2];
-	memset(spline_fit_profile, 0, sizeof(double) * l_track);
+	memset(spline_fit_profile, 0, sizeof(double) * (l_track+2));
 
 	//int max_dist_between_cons_pts = 50;
 
