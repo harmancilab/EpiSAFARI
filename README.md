@@ -160,6 +160,7 @@ chmod 755 fetchChromSizes <br>
 chmod 755 wigToBigWig <br>
 chmod 755 bigWigToBedGraph <br>
 <br>
+gzip -cd GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig.gz > GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig <br>
 ./fetchChromSizes hg19 > hg19.list <br>
 ./wigToBigWig GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig hg19.list GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig.bw <br>
 ./bigWigToBedGraph GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig.bw GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig.bw.bgr <br>
