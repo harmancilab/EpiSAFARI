@@ -1,7 +1,7 @@
 all: EpiSAFARI 
 
 CC = g++
-comp_flags = -c -O3 -Wall
+comp_flags = -c -O2 -Wall
 gsl_flags = -lgsl -lgslcblas -lz
 exec_name = ./bin/EpiSAFARI
 LIB_DIR = ./src
