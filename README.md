@@ -150,7 +150,7 @@ EpiSAFARI can also process sparse signals. Examples of these include DNA methyla
 
 We demonstrate this option on a DNA methylation dataset from Roadmap Epigenome Project:
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
-<i><font face="courier">
+<i><font face="courier" size=1>
 wget -c ftp://ftp.ncbi.nlm.nih.gov/pub/geo/DATA/roadmapepigenomics/by_experiment/Bisulfite-Seq/brain_hippocampus_middle/GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig.gz <br>
 <br>
 wget http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/bigWigToBedGraph <br>
