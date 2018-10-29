@@ -31,7 +31,7 @@ ${LIB_DIR}/epsfr_annot_region_tools.o \
 ${LIB_DIR}/epsfr_utils.o \
 
 EpiSAFARI: ${objs}
-	${CC} -O3 ${gsl_flags} -o ${exec_name} ${objs}
+	${CC} -O2 ${gsl_flags} -o ${exec_name} ${objs}
 
 clean:
 	rm -f ${objs} ${exec_name} 

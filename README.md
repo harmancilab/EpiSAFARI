@@ -118,11 +118,11 @@ cd .. <br>
 # bedGraph files: <br>
 ./bin/EpiSAFARI -get_significant_extrema bedGraphs 1000 5 1.2 125 hg19_36bp 1.2<br>
 # mapped read files: <br>
-max_trough_sig=1000
-min_summit_sig=5
-min_summit2trough_frac=1.2
-l_vic=125
-min_multimapp=1.2
+max_trough_sig=1000 <br>
+min_summit_sig=5 <br>
+min_summit2trough_frac=1.2 <br>
+l_vic=125 <br>
+min_multimapp=1.2 <br>
 ./bin/EpiSAFARI -get_significant_extrema GSM1112838_bedGraphs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${l_vic} hg19_36bp ${min_multimapp}<br>
 <br>
 </font></i>
@@ -183,12 +183,12 @@ sparse_data=1 <br>
 l_post_filter=50 <br>
 <br>
 ./bin/EpiSAFARI -bspline_encode GSM1112838_bedGraphs ${n_spline_coeffs} ${spline_order} ${max_max_err} ${max_avg_err} ${l_win} ${sparse_data} ${l_post_filter} <br>
-
-max_trough_sig=1
-min_summit_sig=0.5
-min_summit2trough_frac=1.2
-l_vic=5000
-min_multimapp=1.2
+ <br>
+max_trough_sig=1 <br>
+min_summit_sig=0.5 <br>
+min_summit2trough_frac=1.2 <br>
+l_vic=5000 <br>
+min_multimapp=1.2 <br>
 ./bin/EpiSAFARI -get_significant_extrema GSM1112838_bedGraphs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${l_vic} hg19_36bp ${min_multimapp}<br>
 </font></i>
 </div><br>
