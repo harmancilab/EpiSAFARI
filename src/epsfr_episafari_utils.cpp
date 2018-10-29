@@ -790,7 +790,10 @@ if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
 		}
 		else
 		{
-			fprintf(stderr, "No fit @ %s:%d-%d\n", chr_id, start_i, end_i);
+if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
+{
+				fprintf(stderr, "No fit @ %s:%d-%d\n", chr_id, start_i, end_i);
+}
 
 			// Copy the signal profile in this window directly.
 			for (int i = start_i; i < end_i; i++)
