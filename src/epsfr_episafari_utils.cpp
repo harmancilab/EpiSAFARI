@@ -609,6 +609,10 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 	_unlink(orig_bgr_fp);
 #endif
 
+#ifdef __unix__
+	unlink(orig_bgr_fp);
+#endif
+
 	//if (!check_file(mapped_reads_fp))
 	//{
 	//	fprintf(stderr, "Could not find data file @ %s\n", mapped_reads_fp);
