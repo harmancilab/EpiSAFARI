@@ -600,6 +600,15 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 	sprintf(orig_bgr_fp, "%s/original_%s.bgr", signal_dir, chr_id);
 	dump_bedGraph_per_per_nucleotide_binary_profile(signal_profile, l_track, chr_id, orig_bgr_fp);
 
+	char comp_orig_bgr_fp[1000];
+	sprintf(comp_orig_bgr_fp, "%s/original_%s.bgr.gz", signal_dir, chr_id);
+	compressFile(orig_bgr_fp, comp_orig_bgr_fp);
+
+	// Delete the uncompressed file.
+#ifdef _WIN32
+	_unlink(orig_bgr_fp);
+#endif
+
 	//if (!check_file(mapped_reads_fp))
 	//{
 	//	fprintf(stderr, "Could not find data file @ %s\n", mapped_reads_fp);
