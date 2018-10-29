@@ -99,7 +99,7 @@ l_post_filter=-1<br>
 # bedGraph files: <br>
 ./bin/EpiSAFARI -bspline_encode bedGraphs ${n_spline_coeffs} ${spline_order} ${max_max_err} ${max_avg_err} ${l_win} ${sparse_data} ${l_post_filter}<br>
 # mapped read files: <br>
-./bin/EpiSAFARI -bspline_encode processed_reads/dedup ${n_spline_coeffs} ${spline_order} ${max_max_err} ${max_avg_err} ${l_win} ${sparse_data}<br>
+./bin/EpiSAFARI -bspline_encode processed_reads/dedup ${n_spline_coeffs} ${spline_order} ${max_max_err} ${max_avg_err} ${l_win} ${sparse_data} ${l_post_filter}<br>
 </font></i>
 </div><br>
 
@@ -156,11 +156,11 @@ wget -c ftp://ftp.ncbi.nlm.nih.gov/pub/geo/DATA/roadmapepigenomics/by_experiment
 wget http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/bigWigToBedGraph <br>
 wget http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/wigToBigWig <br>
 wget http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/fetchChromSizes <br>
-chmod 755 fetchChromSizes
-chmod 755 wigToBigWig
-chmod 755 bigWigToBedGraph
+chmod 755 fetchChromSizes <br>
+chmod 755 wigToBigWig <br>
+chmod 755 bigWigToBedGraph <br>
 <br>
-./fetchChromSizes hg19 > hg19.list
+./fetchChromSizes hg19 > hg19.list <br>
 ./wigToBigWig GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig hg19.list GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig.bw <br>
 ./bigWigToBedGraph GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig.bw GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig.bw.bgr <br>
  <br>
@@ -189,7 +189,7 @@ To visualize the spline smoothed signal profile for chromosome 1, use following:
 <i><font face="courier">
 wget http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/bedGraphToBigWig <br>
 chmod 755 bedGraphToBigWig <br>
-gzip -cd spline_coded_1.bgr.gz > spline_coded_1.bgr <br>
+gzip -cd bedGraphs/spline_coded_1.bgr.gz > bedGraphs/spline_coded_1.bgr <br>
 sed -i 's/chr//g' hg19.list  <br>
 bedGraphToBigWig bedGraphs/spline_coded_1.bgr hg19.list spline_coded_1.bgr.bw
 </font></i>
