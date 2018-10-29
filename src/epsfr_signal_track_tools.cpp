@@ -78,7 +78,8 @@ void dump_bedGraph_per_per_nucleotide_binary_profile(double* signal_profile_buff
 		} // i_nuc loop.
 
 		// At this point, either this is the end of the profile, or there was a change in the height, either way, this was the end of the current block. Definitely dump it.
-		if(cur_height != signal_profile_buffer[i_nuc])
+		if(i_nuc > l_profile ||
+			cur_height != signal_profile_buffer[i_nuc])
 		{
 			// Dump the current block.
 			fprintf(f_op, "%s\t%d\t%d\t%lf\n", chrom, 

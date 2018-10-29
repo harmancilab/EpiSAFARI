@@ -711,7 +711,6 @@ if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
 
 				// compute the errors only on the fit locations.
 				vector<double>* errors = new vector<double>();
-				total_err = 0;
 				for (int i_l = 0; i_l < n_data_points; i_l++)
 				{
 					double cur_reconst_y = reconst_y[i_l];
@@ -801,7 +800,7 @@ if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
 		{
 if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
 {
-				fprintf(stderr, "No fit @ %s:%d-%d\n", chr_id, start_i, end_i);
+			fprintf(stderr, "No fit @ %s:%d-%d\n", chr_id, start_i, end_i);
 }
 
 			// Copy the signal profile in this window directly.

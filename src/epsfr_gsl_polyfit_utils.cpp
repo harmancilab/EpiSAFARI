@@ -33,6 +33,8 @@ bool bsplinefit(int n_data_pts,
 
   //const size_t n = n_data_pts;
   const size_t ncoeffs = n_spline_coeffs;
+
+  // This is the number of knots.
   const size_t nbreak = ncoeffs - (spline_order - 2);
   size_t i, j;
   gsl_bspline_workspace *bw;
