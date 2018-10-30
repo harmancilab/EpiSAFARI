@@ -144,8 +144,8 @@ l_promoter=1000
 
 Finally, you can also add ENCODE2 transcription factor binding annotations. We have built the GFF file for the uniformly processed peaks of 690 transcription factors from the ENCODE2 cell lines that you can download and use to annotate the features:
 
-wget http://harmancilab.org/tools/EpiSAFARI/wgEncodeAwgTfbs.gff.gz
 ```
+wget http://harmancilab.org/tools/EpiSAFARI/wgEncodeAwgTfbs.gff.gz
 ./bin/EpiSAFARI -annotate_features bedGraphs wgEncodeAwgTfbs.gff.gz 0 annotated_features.bed
 ```
 <br>
