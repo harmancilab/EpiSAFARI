@@ -299,13 +299,15 @@ vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* 
 
 					// Compute the average multi-map signal within the valley.
 					double total_multimapp_signal = 0;
-					double max_multimapp_signal = 10000;
+					double max_multimapp_signal = -1;
 					for (int i = cur_left_maxima->extrema_posn; i < cur_right_maxima->extrema_posn; i++)
 					{
-						if (i < l_multimapp_profile &&
-							max_multimapp_signal > multimapp_signal_profile[i])
+						if (i < l_multimapp_profile)
 						{
-							max_multimapp_signal = multimapp_signal_profile[i];
+							if (multimapp_signal_profile[i] > max_multimapp_signal)
+							{
+								max_multimapp_signal = multimapp_signal_profile[i];
+							}
 
 							total_multimapp_signal += multimapp_signal_profile[i];
 						}
