@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "epsfr_episafari_utils.h"
+#include "epsfr_nucleotide.h"
 #include "epsfr_genomics_coords.h"
 #include "epsfr_nomenclature.h"
 #include "epsfr_ansi_string.h"
@@ -82,8 +83,116 @@ double* load_signal_covg_per_directory_chr_id(char* dat_dir,
 	return(NULL);
 }
 
-vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* op_dir, const char* chr_id, double* signal_profile, int l_profile,
+void binarize_fasta_file(char* fasta_fp, char* bin_dir)
+{
+	printf("Saving %s.\n", fasta_fp);
+	FILE* f_fasta = open_f(fasta_fp, "r");
+
+	char* cur_line = NULL;
+	char* cur_entry_buffer = new char[250 * 1000 * 1000];
+	int cur_entry_i = 1; // This ensures that we are 1 based.
+	char cur_entry_id[1000];
+
+	char chr_ids_fp[1000];
+	sprintf(chr_ids_fp, "%s/chr_ids.txt", bin_dir);
+	FILE* f_chr_ids = open_f(chr_ids_fp, "a");
+
+	while (1)
+	{
+		// Process the current buffer.
+		cur_line = getline(f_fasta);
+
+		if (cur_line == NULL)
+		{
+			// File ended, dump the last entry if there are values in it.
+			if (cur_entry_i > 1)
+			{
+				char cur_entry_bin_fp[1000];
+				normalize_chr_id(cur_entry_id);
+				sprintf(cur_entry_bin_fp, "%s/%s.bin", bin_dir, cur_entry_id);
+				fprintf(f_chr_ids, "%s\n", cur_entry_id);
+				FILE* f_bin = open_f(cur_entry_bin_fp, "wb");
+
+				// Open the new binary file.
+				fprintf(stderr, "Dumping %s (%d)\n", cur_entry_id, cur_entry_i);
+
+				// Dump the sequence buffer.
+				fwrite(&cur_entry_i, sizeof(int), 1, f_bin);
+				fwrite(cur_entry_buffer, sizeof(char), cur_entry_i, f_bin);
+
+				// Close current file.
+				fclose(f_bin);
+			}
+			break;
+		}
+		else if (cur_line[0] == '>')
+		{
+			if (cur_entry_i > 1)
+			{
+				char cur_entry_bin_fp[1000];
+				normalize_chr_id(cur_entry_id);
+				sprintf(cur_entry_bin_fp, "%s/%s.bin", bin_dir, cur_entry_id);
+				fprintf(f_chr_ids, "%s\n", cur_entry_id);
+				FILE* f_bin = open_f(cur_entry_bin_fp, "wb");
+
+				// Open the new binary file.
+				fprintf(stderr, "Dumping %s (%d)\n", cur_entry_id, cur_entry_i);
+
+				// Dump the sequence buffer.
+				fwrite(&cur_entry_i, sizeof(int), 1, f_bin);
+				fwrite(cur_entry_buffer, sizeof(char), cur_entry_i, f_bin);
+
+				// Close current file.
+				fclose(f_bin);
+			}
+
+			// Update the id, reset the counter.
+			strcpy(cur_entry_id, &(cur_line[1]));
+			cur_entry_i = 1;
+		}
+		else
+		{
+			// Concatenate the current sequence line.
+			int l_cur_line = t_string::string_length(cur_line);
+			for (int i = 0; i < l_cur_line; i++)
+			{
+				cur_entry_buffer[cur_entry_i] = cur_line[i];
+				cur_entry_i++;
+			} // i loop.
+		}
+
+		delete[] cur_line;
+	} // file reading loop.
+
+	fclose(f_fasta);
+	fclose(f_chr_ids);
+
+	delete[] cur_entry_buffer;
+}
+
+char* load_binary_sequence_file(char* bin_seq_fp, int& l_seq)
+{
+	FILE* f_bin_seq = open_f(bin_seq_fp, "rb");
+	int l_bin_seq = 0;
+
+	// Read the length.
+	fread(&l_bin_seq, sizeof(int), 1, f_bin_seq);
+
+	l_seq = l_bin_seq;
+
+	// Read the sequence.
+	char* bin_seq = new char[l_bin_seq + 2];
+	fread(bin_seq, sizeof(char), l_bin_seq + 1, f_bin_seq);
+	fclose(f_bin_seq);
+
+	return(bin_seq);
+}
+
+vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* op_dir,
+																	const char* chr_id,
+																	double* signal_profile, int l_profile,
 																	double* multimapp_signal_profile, int l_multimapp_profile,
+																	char* chrom_seq,
 																	t_extrema_statistic_defition* extrema_statistic_defn)
 {
 	// Normalize signal?
@@ -202,6 +311,14 @@ vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* 
 						}
 					} // i loop.
 
+					// Count the nucleotides.
+					int* nuc_counts = new int[5];
+					memset(nuc_counts, 0, sizeof(int) * 5);
+					for (int i = cur_left_maxima->extrema_posn; i < cur_right_maxima->extrema_posn; i++)
+					{
+						nuc_counts[nuc_2_num(chrom_seq[i])]++;
+					} // i loop.
+
 					total_multimapp_signal /= fabs((double)(cur_left_maxima->extrema_posn - cur_right_maxima->extrema_posn));
 				
 					t_annot_region* new_valley = get_empty_region();
@@ -215,7 +332,7 @@ vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* 
 					valley_points[2] = all_extrema_regs->at(i_ext);
 
 					// Set the points.
-					void** valley_info = new void*[3];
+					void** valley_info = new void*[5];
 					valley_info[0] = valley_points;
 
 					// Set the multimapp signal levels.
@@ -226,6 +343,9 @@ vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* 
 
 					// Set the positive derivative fractions.
 					valley_info[2] = left_right_pos_der_frac;
+
+					// Set the nucleotide counts as information.
+					valley_info[3] = nuc_counts;
 
 					new_valley->data = valley_info;
 
@@ -246,8 +366,9 @@ vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* 
 		t_extrema_node** valley_points = (t_extrema_node**)(valley_info[0]);
 		double* cur_valley_multimapp_signals = (double*)(valley_info[1]);
 		double* left_right_pos_der_frac = (double*)(valley_info[2]);
+		int* nuc_counts = (int*)(valley_info[3]);
 
-		fprintf(f_valleys, "%s\t%d\t%d\t%d\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\n", 
+		fprintf(f_valleys, "%s\t%d\t%d\t%d\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%c:%d %c:%d %c:%d %c:%d\n", 
 				significant_valleys->at(i_val)->chrom, 
 				translate_coord(significant_valleys->at(i_val)->start, CODEBASE_COORDS::start_base, BED_COORDS::start_base), 
 				translate_coord(significant_valleys->at(i_val)->end, CODEBASE_COORDS::end_base, BED_COORDS::end_base),
@@ -258,7 +379,11 @@ vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* 
 				cur_valley_multimapp_signals[0],
 				cur_valley_multimapp_signals[1],
 				left_right_pos_der_frac[0],
-				left_right_pos_der_frac[1]);
+				left_right_pos_der_frac[1],
+				num_2_nuc(0), nuc_counts[0], 
+				num_2_nuc(1), nuc_counts[1], 
+				num_2_nuc(2), nuc_counts[2],
+				num_2_nuc(3), nuc_counts[3]);
 	} // i_val loop.
 	fclose(f_valleys);
 

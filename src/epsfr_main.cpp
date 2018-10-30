@@ -24,8 +24,9 @@ Input Data Processing:\n\
 		-preprocess_reads [File format (\"SAM\"/\"ELAND\"/\"bowtie\"/\"tagAlign\"/\"BED5\"/\"BED6\")] [Mapped reads file path (\"stdin\" for piped input)] [Output directory]\n\
 		-sort_reads [Preprocessed read directory] [Sorted reads output directory]\n\
 		-remove_duplicates [Sorted preprocessed read directory] [Max # of duplicates per position] [Output directory]\n\
-	BedGraph Processing:\n\
+	BedGraph/Sequence Processing:\n\
 		-separate_bedGraph_2_chromosomes [bedGraph file path] [Output directory]\n\
+		-preprocess_FASTA [Directory with fasta files] [Sequence extension (e.g., fasta, fa)] [Output directory]\n\
 Signal Feature Detection:\n\
 	-bspline_encode [bedGraph/processed reads directory path] [# Spline Coefficients] [Spline Order (>=2)] [Max max error] [Max avg error] [window length] [Sparse data flag (0/1)] [Post Median Filter Length]\n\
 	-get_significant_extrema_per_signal_profile [Binary signal profile file path] [chr id] \
@@ -53,6 +54,30 @@ int main(int argc, char* argv[])
 	{
 		print_usage(argv);
 		exit(0);
+	}
+	else if (strcmp(argv[1], "-preprocess_FASTA") == 0)
+	{
+		if (argc != 5)
+		{
+			fprintf(stderr, "%s -preprocess_FASTA [FASTA file path] [Sequence extension] [Output directory]\n", argv[0]);
+			exit(0);
+		}
+
+		char* fasta_dir = argv[2];
+		char* seq_ext = argv[3];
+		char* op_dir = argv[4];
+
+		vector<char*>* fasta_fns = load_directory_files(fasta_dir, seq_ext);
+		printf("Preprocessing %d sequence FASTA files in %s\n", (int)fasta_fns->size(), fasta_dir);
+
+		// Binarize each file separately.
+		for (int i_fa = 0; i_fa < (int)fasta_fns->size(); i_fa++)
+		{
+			//binarize_genome_per_fasta(fasta_fps->at(i_fa), op_dir);
+			char cur_chr_fa_fp[1000];
+			sprintf(cur_chr_fa_fp, "%s/%s", fasta_dir, fasta_fns->at(i_fa));
+			binarize_fasta_file(cur_chr_fa_fp, op_dir);
+		} // i_fa loop.
 	}
 	else if (strcmp(argv[1], "-annotate_features") == 0)
 	{
@@ -451,12 +476,12 @@ int main(int argc, char* argv[])
 	} // -preprocess option.
 	if (t_string::compare_strings(argv[1], "-get_significant_extrema"))
 	{
-		if (argc != 9)
+		if (argc != 10)
 		{
 			fprintf(stderr, "USAGE: %s -get_significant_extrema [Encoded signals data directory path] \
 [Maximum signal at trough] [Minimum signal at summit] \
 [Minimum summit2trough ratio per trough] [Maximum summit2trough distance in bps] \
-[Multi-mappability profile directory] [Maximum multimapp signal at trough]\n", argv[0]);
+[Multi-mappability profile directory] [Maximum multimapp signal at trough] [Genome sequence directory]\n", argv[0]);
 			exit(0);
 		}
 
@@ -467,6 +492,7 @@ int main(int argc, char* argv[])
 		int max_summit2trough_dist_in_bp = atoi(argv[6]);
 		char* multi_mapp_signal_profile_dir = argv[7];
 		double max_multimapp_signal_at_trough = atof(argv[8]);
+		char* genome_seq_dir = argv[9];
 
 		char chr_ids_list_fp[1000];
 		sprintf(chr_ids_list_fp, "%s/chr_ids.txt", signal_data_dir);
@@ -505,12 +531,32 @@ int main(int argc, char* argv[])
 			double* multi_mapp_signal = load_normalized_multimappability_profile(multi_mapp_signal_profile_fp, l_multimapp_profile);
 			fprintf(stderr, "Loaded %d long multimappability profile.\n", l_multimapp_profile);
 
-			get_significant_extrema_per_signal_profile(signal_data_dir, chr_id, signal_profile, l_profile,
-				multi_mapp_signal, l_multimapp_profile,
-				extrema_statistic_defn);
+			int l_chrom_seq = 0;
+			char bin_seq_fp[1000];
+			sprintf(bin_seq_fp, "%s/%s.bin", genome_seq_dir, chr_ids->at(i_chr));
 
-			delete[] multi_mapp_signal;
+			char* chrom_seq = NULL;
+			if (check_file(bin_seq_fp))
+			{
+				chrom_seq = load_binary_sequence_file(bin_seq_fp, l_chrom_seq);
+				fprintf(stderr, "Loaded %d nucleotides for the sequence.\n", l_chrom_seq);
+			}			
+
+			get_significant_extrema_per_signal_profile(signal_data_dir, chr_id, signal_profile, l_profile,
+														multi_mapp_signal, l_multimapp_profile, chrom_seq,
+														extrema_statistic_defn);
+
+			// Free memory.
 			delete[] signal_profile;
+			if (multi_mapp_signal != NULL)
+			{
+				delete[] multi_mapp_signal;
+			}
+
+			if (chrom_seq != NULL)
+			{
+				delete[] chrom_seq;
+			}
 		} // i_chr loop.
 	} // -get_significant_extrema_per_signal_profile option.
 	else if (t_string::compare_strings(argv[1], "-bspline_encode"))

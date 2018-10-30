@@ -36,10 +36,17 @@ struct t_episfr_annot_info
 	char* element_name;
 };
 
+char* load_binary_sequence_file(char* bin_seq_fp, int& l_seq);
+
+void binarize_fasta_file(char* fasta_fp, char* bin_dir);
+
 vector<t_annot_region*>* load_annotation(char* gff_fp, int l_half_prom);
 
-vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* op_dir, const char* chr_id, double* signal_profile, int l_profile,
+vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* op_dir, 
+	const char* chr_id, 
+	double* signal_profile, int l_profile,
 	double* multimapp_signal_profile, int l_multimapp_profile,
+	char* chrom_seq,
 	t_extrema_statistic_defition* extrema_statistic_defn);
 
 void annotate_features(char* signal_directory, char* gff_fp, int l_half_prom, char* op_fp);
