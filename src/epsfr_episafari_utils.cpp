@@ -589,7 +589,7 @@ void annotate_features(char* signal_directory, char* gff_fp, int l_half_prom, ch
 	vector<t_annot_region*>* all_valley_regs = new vector<t_annot_region*>();
 	for (int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
 	{
-		fprintf(stderr, "Annotating loading on %s\n", chr_ids->at(i_chr));
+		fprintf(stderr, "Loading features on %s\n", chr_ids->at(i_chr));
 
 		// Load the feats.
 		char valleys_bed_fp[1000];
