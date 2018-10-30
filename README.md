@@ -188,7 +188,7 @@ min_summit_sig=0.5
 min_summit2trough_frac=1.2
 l_vic=5000
 min_multimapp=1.2
-./bin/EpiSAFARI -get_significant_extrema GSM1112838_bedGraphs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${l_vic} hg19_36bp ${min_multimapp}
+./bin/EpiSAFARI -get_significant_extrema GSM1112838_bedGraphs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${l_vic} hg19_36bp ${min_multimapp} hg19_seq
 ```
 
 <h2>Visualization of the Signal</h2>
