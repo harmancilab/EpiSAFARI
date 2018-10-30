@@ -115,15 +115,15 @@ min_summit2trough_frac=1.2
 l_vic=125
 min_multimapp=1.2
 
-## bedGraph files: <br>
+## bedGraph files:
 ./bin/EpiSAFARI -get_significant_extrema bedGraphs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${l_vic} hg19_36bp ${min_multimapp} hg19_seq
 
-## mapped read files: <br>
+## mapped read files:
 ./bin/EpiSAFARI -get_significant_extrema processed_reads/dedup ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${l_vic} hg19_36bp ${min_multimapp} hg19_seq
 ```
 
 <h2>Feature Annotation</h2>
-We finally perform feature annotation. We first download the GENCODE gene annotation gff file:<br>
+We finally perform feature annotation. We first download the GENCODE gene annotation gff file:
 ```
 wget -c ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_19/gencode.v19.annotation.gff3.gz
 
@@ -139,7 +139,7 @@ l_promoter=1000
 Finally, you can also add ENCODE2 transcription factor binding annotations. We have built the GFF file for the uniformly processed peaks of 690 transcription factors from the ENCODE2 cell lines that you can download and use to annotate the features:
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <i><font face="courier">
-wget http://harmancilab.org/tools/EpiSAFARI/wgEncodeAwgTfbs.gff.gz <br>
+wget http://harmancilab.org/tools/EpiSAFARI/wgEncodeAwgTfbs.gff.gz
 ```
 ./bin/EpiSAFARI -annotate_features bedGraphs wgEncodeAwgTfbs.gff.gz 0 annotated_features.bed
 ```
