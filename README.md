@@ -143,8 +143,7 @@ l_promoter=1000
 ```
 
 Finally, you can also add ENCODE2 transcription factor binding annotations. We have built the GFF file for the uniformly processed peaks of 690 transcription factors from the ENCODE2 cell lines that you can download and use to annotate the features:
-<div style="padding:8px;background-color:#ddd;line-height:1.4;">
-<i><font face="courier">
+
 wget http://harmancilab.org/tools/EpiSAFARI/wgEncodeAwgTfbs.gff.gz
 ```
 ./bin/EpiSAFARI -annotate_features bedGraphs wgEncodeAwgTfbs.gff.gz 0 annotated_features.bed
@@ -152,6 +151,7 @@ wget http://harmancilab.org/tools/EpiSAFARI/wgEncodeAwgTfbs.gff.gz
 <br>
 
 <h2>Sparse Mode</h2>
+
 EpiSAFARI can also process sparse signals. Examples of these include DNA methylation data, which happens only at cytosine nucleotides. For this, run EpiSAFARI with sparse_data=1 to enable sparse signal smoothing. We also turn on post-median filter on.<br><br>
 
 We demonstrate this option on a DNA methylation dataset from Roadmap Epigenome Project:
@@ -192,6 +192,7 @@ min_multimapp=1.2
 ```
 
 <h2>Visualization of the Signal</h2>
+
 IGV can be used to visualize the spline coded signals. These are stored as bedGraphs files under data directory. <br><br>
 
 To visualize the spline smoothed signal profile for chromosome 1, use following:
