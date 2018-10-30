@@ -586,10 +586,10 @@ void annotate_features(char* signal_directory, char* gff_fp, int l_half_prom, ch
 	vector<t_annot_region*>* annotations = load_annotation(gff_fp, l_half_prom);
 	fprintf(stderr, "Loaded %d annotation elements.\n", (int)annotations->size());
 
-	FILE* f_op = open_f(op_fp, "w");
+	vector<t_annot_region*>* all_valley_regs = new vector<t_annot_region*>();
 	for (int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
 	{
-		fprintf(stderr, "Annotating features on %s\n", chr_ids->at(i_chr));
+		fprintf(stderr, "Annotating loading on %s\n", chr_ids->at(i_chr));
 
 		// Load the feats.
 		char valleys_bed_fp[1000];
@@ -609,51 +609,55 @@ void annotate_features(char* signal_directory, char* gff_fp, int l_half_prom, ch
 			valley_regs->at(i_val)->data = new_info;
 		} // i_val loop.
 
-		vector<t_annot_region*>* intersects = intersect_annot_regions(valley_regs, annotations, true);
-		for (int i_int = 0; i_int < (int)intersects->size(); i_int++)
-		{
-			t_intersect_info* int_info = (t_intersect_info*)(intersects->at(i_int)->data);
-
-			t_annot_region* int_valley_reg = int_info->src_reg;
-			t_annot_region* int_annot_reg = int_info->dest_reg;
-
-			// Write the annotation for the current valley.
-			t_episfr_annot_info* cur_annot_info = (t_episfr_annot_info*)(int_annot_reg->data);
-
-
-			void** cur_valley_info = (void**)(int_valley_reg->data);
-			vector<t_episfr_annot_info*>* annots = (vector<t_episfr_annot_info*>*)(cur_valley_info[1]);
-			annots->push_back(cur_annot_info);
-
-			delete int_info;
-		} // i_int loop.
-
-		delete_annot_regions(intersects);
-
-		// Dump annotations.				
-		for (int i_val = 0; i_val < (int)valley_regs->size(); i_val++)
-		{
-			void** cur_valley_info = (void**)(valley_regs->at(i_val)->data);
-			char* cur_valley_line = (char*)(cur_valley_info[0]);
-			vector<t_episfr_annot_info*>* annots = (vector<t_episfr_annot_info*>*)(cur_valley_info[1]);
-
-			fprintf(f_op, "%s\t", cur_valley_line);
-			if (annots->size() == 0)
-			{
-				fprintf(f_op, ".");
-			}
-			else
-			{
-				// Process all the annotations.
-				for (int i_ann = 0; i_ann < (int)annots->size(); i_ann++)
-				{
-					fprintf(f_op, "%s:%s;", annots->at(i_ann)->element_type, annots->at(i_ann)->element_name);
-				} // i_ann loop.
-			}
-
-			fprintf(f_op, "\n");
-		} // i_val loop.
+		all_valley_regs->insert(all_valley_regs->end(), valley_regs->begin(), valley_regs->end());
 	} // i_chr loop.
+
+	// Annotate.
+	vector<t_annot_region*>* intersects = intersect_annot_regions(all_valley_regs, annotations, true);
+	for (int i_int = 0; i_int < (int)intersects->size(); i_int++)
+	{
+		t_intersect_info* int_info = (t_intersect_info*)(intersects->at(i_int)->data);
+
+		t_annot_region* int_valley_reg = int_info->src_reg;
+		t_annot_region* int_annot_reg = int_info->dest_reg;
+
+		// Write the annotation for the current valley.
+		t_episfr_annot_info* cur_annot_info = (t_episfr_annot_info*)(int_annot_reg->data);
+
+
+		void** cur_valley_info = (void**)(int_valley_reg->data);
+		vector<t_episfr_annot_info*>* annots = (vector<t_episfr_annot_info*>*)(cur_valley_info[1]);
+		annots->push_back(cur_annot_info);
+
+		delete int_info;
+	} // i_int loop.
+	delete_annot_regions(intersects);
+
+	// Dump annotations.	
+	FILE* f_op = open_f(op_fp, "w");
+	for (int i_val = 0; i_val < (int)all_valley_regs->size(); i_val++)
+	{
+		void** cur_valley_info = (void**)(all_valley_regs->at(i_val)->data);
+		char* cur_valley_line = (char*)(cur_valley_info[0]);
+		vector<t_episfr_annot_info*>* annots = (vector<t_episfr_annot_info*>*)(cur_valley_info[1]);
+
+		fprintf(f_op, "%s\t", cur_valley_line);
+		if (annots->size() == 0)
+		{
+			fprintf(f_op, ".");
+		}
+		else
+		{
+			// Process all the annotations.
+			for (int i_ann = 0; i_ann < (int)annots->size(); i_ann++)
+			{
+				fprintf(f_op, "%s:%s;", annots->at(i_ann)->element_type, annots->at(i_ann)->element_name);
+			} // i_ann loop.
+		}
+
+		fprintf(f_op, "\n");
+	} // i_val loop.
+
 	fclose(f_op);
 }
 
