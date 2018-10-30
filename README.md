@@ -109,6 +109,7 @@ l_post_filter=-1<br>
 <h2>Feature Detection</h2>
 We next do feature identification. We first download the multi-mappability signal then identify the features:<br>
 
+```
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <i><font face="courier">
 mkdir hg19_36bp <br>
@@ -116,21 +117,28 @@ cd hg19_36bp <br>
 wget -c http://archive.gersteinlab.org/proj/MUSIC/multimap_profiles/hg19/hg19_36bp.tar.bz2 <br>
 tar -xvjf hg19_36bp.tar.bz2 <br>
 cd .. <br>
-# bedGraph files: <br>
-./bin/EpiSAFARI -get_significant_extrema bedGraphs 1000 5 1.2 125 hg19_36bp 1.2<br>
-# mapped read files: <br>
+mkdir hg19_seq
+cd hg19_seq
+wget -c http://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/chromFa.tar.gz <br>
+tar -xvzf chromFa.tar.gz <br>
+./bin/EpiSAFARI -preprocess_FASTA . fa . <br>
+cd .. <br>
 max_trough_sig=1000 <br>
 min_summit_sig=5 <br>
 min_summit2trough_frac=1.2 <br>
 l_vic=125 <br>
 min_multimapp=1.2 <br>
-./bin/EpiSAFARI -get_significant_extrema GSM1112838_bedGraphs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${l_vic} hg19_36bp ${min_multimapp}<br>
-<br>
+# bedGraph files: <br>
+./bin/EpiSAFARI -get_significant_extrema bedGraphs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${l_vic} hg19_36bp ${min_multimapp} hg19_seq<br>
+# mapped read files: <br>
+./bin/EpiSAFARI -get_significant_extrema processed_reads/dedup ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${l_vic} hg19_36bp ${min_multimapp} hg19_seq<br>
 </font></i>
 </div><br>
+```
 
 <h2>Feature Annotation</h2>
 We finally perform feature annotation. We first download the GENCODE gene annotation gff file:<br>
+```
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <i><font face="courier">
 wget -c ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_19/gencode.v19.annotation.gff3.gz <br>
@@ -142,6 +150,7 @@ l_promoter=1000 <br><br>
 ./bin/EpiSAFARI -annotate_features processed_reads/dedup gencode.v19.annotation.gff3.gz ${l_promoter} annotated_features.bed <br>
 </font></i>
 </div><br>
+```
 
 Finally, you can also add ENCODE2 transcription factor binding annotations. We have built the GFF file for the uniformly processed peaks of 690 transcription factors from the ENCODE2 cell lines that you can download and use to annotate the features:
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
@@ -226,8 +235,9 @@ This is an extended bed file with following columns:<br>
 <li>[Minima signal]: Signal at the minima </li>
 <li>[Average multi-mappability signal]: Average multi-mappability signal on the valley </li>
 <li>[Maximum multi-mappability signal]: MAximum multi-mappability signal on the valley </li>
-<li>[Left hill fraction]: Fraction of the nucleotides on the left hill</li>
-<li>[Right hill fraction]: Fraction of the nucleotides on the right hill</li>
+<li>[Left hill quality]: Fraction of the nucleotides on the left hill</li>
+<li>[Right hill quality]: Fraction of the nucleotides on the right hill</li>
+<li>[Nucleotide counts]: Count of nucleotides in the valley: A, C, G, T counts from left maximum to right maximum</li>
 <li>[Annotation]: Annotated element's name and type of the element (gene, exon, transcript, promoter, TF_peak)</li>
 </font></i>
 </div><br>
