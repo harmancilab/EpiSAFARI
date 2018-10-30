@@ -46,7 +46,9 @@ EpiSAFARI run starts with setting up the input files. (Note that we use samtools
 directly as input. It is necessary to divide the data into chromosomes.
 
 <h2>Building input with bedGraph and bigWig files</h2>
+
 We show an example from ENCODE project below:
+
 ```
 wget -c http://hgdownload.soe.ucsc.edu/goldenPath/hg19/encodeDCC/wgEncodeBroadHistone/wgEncodeBroadHistoneGm12878H3k04me3StdSigV2.bigWig
 wget http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/bigWigToBedGraph <br>
@@ -58,7 +60,9 @@ mkdir bedGraphs
 If there are multiple replicates to be pooled, they can be done at once or separately. If done separately, EpiSAFARI pools the bedGraphs automatically and uses the total signal profile in the analyses.<br>
 
 <h2>Building input with mapped read files</h2>
-EpiSAFARI can also process mapped read files, for example in SAM format. We show again an example from the ENCODE Project: <br>
+
+EpiSAFARI can also process mapped read files, for example in SAM format. We show again an example from the ENCODE Project:
+
 ```
 wget -c http://hgdownload.soe.ucsc.edu/goldenPath/hg19/encodeDCC/wgEncodeBroadHistone/wgEncodeBroadHistoneGm12878H3k04me1StdAlnRep1V2.bam
 mkdir processed_reads
@@ -123,7 +127,9 @@ min_multimapp=1.2
 ```
 
 <h2>Feature Annotation</h2>
+
 We finally perform feature annotation. We first download the GENCODE gene annotation gff file:
+
 ```
 wget -c ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_19/gencode.v19.annotation.gff3.gz
 
