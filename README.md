@@ -9,7 +9,8 @@ EpiSAFARI is a command line tool for detection of signal features from the funct
 </div><br>
 and outputs:<br>
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
-- The valleys and local minima and maxima in the signal profile. <br>
+- The spline smoothed signal profile. <br>
+- The valleys, local minima and maxima in the signal profile. <br>
 </div>
 <br>
 
