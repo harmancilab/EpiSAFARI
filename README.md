@@ -51,7 +51,7 @@ We show an example from ENCODE project below:
 
 ```
 wget -c http://hgdownload.soe.ucsc.edu/goldenPath/hg19/encodeDCC/wgEncodeBroadHistone/wgEncodeBroadHistoneGm12878H3k04me3StdSigV2.bigWig
-wget http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/bigWigToBedGraph <br>
+wget http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/bigWigToBedGraph
 chmod 755 bigWigToBedGraph
 ./bigWigToBedGraph wgEncodeBroadHistoneGm12878H3k04me3StdSigV2.bigWig wgEncodeBroadHistoneGm12878H3k04me3StdSigV2.bigWig.bgr
 mkdir bedGraphs
@@ -111,7 +111,7 @@ mkdir hg19_seq
 cd hg19_seq
 wget -c http://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/chromFa.tar.gz
 tar -xvzf chromFa.tar.gz
-./bin/EpiSAFARI -preprocess_FASTA . fa .
+../bin/EpiSAFARI -preprocess_FASTA . fa .
 cd ..
 max_trough_sig=1000
 min_summit_sig=5
