@@ -197,10 +197,10 @@ IGV can be used to visualize the spline coded signals. These are stored as bedGr
 
 To visualize the spline smoothed signal profile for chromosome 1, use following:
 ```
-wget http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/bedGraphToBigWig <br>
-chmod 755 bedGraphToBigWig <br>
-gzip -cd bedGraphs/spline_coded_1.bgr.gz > bedGraphs/spline_coded_1.bgr <br>
-sed -i 's/chr//g' hg19.list  <br>
+wget http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/bedGraphToBigWig
+chmod 755 bedGraphToBigWig
+gzip -cd bedGraphs/spline_coded_1.bgr.gz > bedGraphs/spline_coded_1.bgr
+sed -i 's/chr//g' hg19.list
 bedGraphToBigWig bedGraphs/spline_coded_1.bgr hg19.list spline_coded_1.bgr.bw
 ```
 
