@@ -116,7 +116,7 @@ cd ..
 max_trough_sig=1000
 min_summit_sig=5
 min_summit2trough_frac=1.2
-l_vic=125
+l_vic=250
 min_multimapp=1.2
 
 ## bedGraph files:
@@ -125,6 +125,8 @@ min_multimapp=1.2
 ## mapped read files:
 ./bin/EpiSAFARI -get_significant_extrema processed_reads/dedup ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${l_vic} hg19_36bp ${min_multimapp} hg19_seq
 ```
+
+Please increase <i>l_vic</i> to 500 to generate a more relaxed set of valleys.
 
 <h2>Feature Annotation</h2>
 
@@ -204,7 +206,9 @@ sed -i 's/chr//g' hg19.list
 bedGraphToBigWig bedGraphs/spline_coded_1.bgr hg19.list spline_coded_1.bgr.bw
 ```
 
-The bigWig file named <i>spline_coded_1.bgr.bw</i> can be opened in IGV to visualize the spline smoothed signal.
+The bigWig file named <i>spline_coded_1.bgr.bw</i> can be opened in IGV to visualize the spline smoothed signal. An example is shown below:<br><br>
+
+<div style="text-align:center;"><img src="example.png" alt="Could not load example." width="1000" align="center"></div>
 
 <h2>Output format</h2>
 EpiSAFARI outputs the identified features to files named "significant_valleys_[chrosome id].bed" for each chromosome.<br><br>
