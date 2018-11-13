@@ -59,7 +59,7 @@ int main(int argc, char* argv[])
 	{
 		if (argc != 5)
 		{
-			fprintf(stderr, "%s -preprocess_FASTA [FASTA file path] [Sequence extension] [Output directory]\n", argv[0]);
+			fprintf(stderr, "%s -preprocess_FASTA [Directory with fasta files] [Sequence extension (e.g., fasta, fa)] [Output directory]\n", argv[0]);
 			exit(0);
 		}
 
