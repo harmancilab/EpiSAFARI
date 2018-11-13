@@ -29,10 +29,10 @@ Input Data Processing:\n\
 		-preprocess_FASTA [Directory with fasta files] [Sequence extension (e.g., fasta, fa)] [Output directory]\n\
 Signal Feature Detection:\n\
 	-bspline_encode [bedGraph/processed reads directory path] [# Spline Coefficients] [Spline Order (>=2)] [Max max error] [Max avg error] [window length] [Sparse data flag (0/1)] [Post Median Filter Length]\n\
-	-get_significant_extrema_per_signal_profile [Binary signal profile file path] [chr id] \
+	-get_significant_extrema [Encoded signals data directory path] \
 [Maximum signal at trough] [Minimum signal at summit] \
 [Minimum summit2trough ratio per trough] [Maximum summit2trough distance in bps] \
-[Multi-mappability profile directory] [Maximum multimapp signal at trough]\n\
+[Multi-mappability profile directory] [Maximum multimapp signal at trough] [Genome sequence directory]\n\
 Feature Annotation:\n\
 	-annotate_features [Signal directory] [GFF file path] [Half promoter length] [Output file path]\n\n",	argv[0]);
 }
