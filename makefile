@@ -29,6 +29,7 @@ ${LIB_DIR}/epsfr_genomics_coords.o \
 ${LIB_DIR}/epsfr_nomenclature.o\
 ${LIB_DIR}/epsfr_annot_region_tools.o \
 ${LIB_DIR}/epsfr_utils.o \
+${LIB_DIR}/epsfr_xlog_math.o 
 
 EpiSAFARI: ${objs}
 	${CC} -O2 ${gsl_flags} -o ${exec_name} ${objs}
