@@ -7,6 +7,8 @@ using namespace std;
 
 class t_rng;
 
+struct t_valley_significance_info;
+
 // Stores the sorting information for the regions.
 struct t_sorting_info
 {
@@ -32,6 +34,8 @@ struct t_annot_region
 	int thick_start;
 	int thick_end;
 	vector<t_annot_region*>* intervals; // These are the exons in the region. Some bed files include this information.
+
+	t_valley_significance_info* significance_info;
 
 	t_sorting_info* sort_info;
 	void* annotation_info;

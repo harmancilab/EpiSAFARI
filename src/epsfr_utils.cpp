@@ -24,6 +24,8 @@ bool __DUMP_UTIL_MESSAGES__ = false;
 
 int compressFile(const char* inFile, const char * const outFileName)
 {
+#ifdef __unix__
+
 	FILE *in = open_f(inFile, "rb");
 
 	char buf[BUFSIZ] = { 0 };
@@ -51,7 +53,7 @@ int compressFile(const char* inFile, const char * const outFileName)
 	gzclose(out);
 
 	fclose(in);
-
+#endif
 	return 0;
 }
 

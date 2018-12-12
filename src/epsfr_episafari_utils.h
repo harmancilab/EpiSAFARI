@@ -8,6 +8,23 @@ using namespace std;
 struct t_extrema_statistic_defition;
 struct t_annot_region;
 
+struct t_valley_significance_info
+{
+	double log_p_val;
+	double log_q_val;
+};
+
+double get_valley_significance(double* signal_profile, int l_profile, int left_max_posn, int right_max_posn, int min_posn, int l_normalizer, int scaling_factor, double* _log_factorials);
+
+void get_benjamini_hochberg_corrected_p_values_per_valleys(vector<t_annot_region*>* valleys);
+
+void dump_valleys(vector<t_annot_region*>* significant_valleys, char* valleys_bed_fp);
+
+vector<t_annot_region*>* merge_overlapping_valleys_per_pval_minimization(char* valleys_BED_fp, int l_minima_vicinity);
+
+void refine_valleys_per_pval_min(double* signal_profile, int l_profile, vector<t_annot_region*>* valley_regs, int l_vic_expand);
+void refine_valleys_per_height_trim(double* signal_profile, int l_profile, vector<t_annot_region*>* valley_regs, double height_frac);
+
 void get_summit_dip_posns_per_ER(double* signal_profile, int l_profile,
 	double* multi_mapp_signal, int l_multi_map_signal, double max_multi_mapp_val,
 	int ER_start, int ER_end,
@@ -20,14 +37,23 @@ void get_summit_dip_posns_per_ER(double* signal_profile, int l_profile,
 struct t_extrema_statistic_defition
 {
 	double max_signal_at_trough;
+	double min_signal_at_summit;
+	
 	double min_summit2trough_ratio_per_trough;
-	double max_mapp_signal_at_trough;
-
-	double min_signal_at_summit;	
-
+	
+	int min_summit2trough_dist_in_bp;
 	int max_summit2trough_dist_in_bp;
-
+	
 	double max_multimapp_signal_at_trough;
+
+	double log_q_val_threshold;
+
+	int p_val_estimate_extrema_vic_window_length;
+	double p_val_estimate_signal_scaling_factor;
+
+	bool sparse_profile;
+
+	int l_minima_vicinity_per_merging;
 };
 
 struct t_episfr_annot_info
