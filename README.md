@@ -72,7 +72,7 @@ mkdir processed_reads
 samtools view wgEncodeBroadHistoneGm12878H3k4me3StdAlnRep1.bam | EpiSAFARI -preprocess_reads SAM stdin processed_reads
 samtools view wgEncodeBroadHistoneGm12878H3k4me3StdAlnRep2.bam | EpiSAFARI -preprocess_reads SAM stdin processed_reads
 ```
-This example pools the 2 replicates of data. If there are more multiple replicates of reads to be pooled, they can be done at once or separately. If done separately, EpiSAFARI pools the reads automatically and uses the total signal profile in the analyses as in the example above.<br><br>
+This example pools the 2 replicates of data. If there are more multiple replicates of reads to be pooled, they can be done at once or separately. If done separately, EpiSAFARI pools the reads automatically and uses the total signal profile in the analyses as in the example above.<br>
 
 We strongly recommend removing duplicates from the reads. This decreases feature identification time quite much:<br>
 ```
