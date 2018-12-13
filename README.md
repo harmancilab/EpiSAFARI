@@ -64,11 +64,15 @@ If there are multiple replicates to be pooled, they can be done at once or separ
 EpiSAFARI can also process mapped read files, for example in SAM format. We show again an example from the ENCODE Project:
 
 ```
-wget -c http://hgdownload.soe.ucsc.edu/goldenPath/hg19/encodeDCC/wgEncodeBroadHistone/wgEncodeBroadHistoneGm12878H3k04me1StdAlnRep1V2.bam
+wget -c http://hgdownload.soe.ucsc.edu/goldenPath/hg19/encodeDCC/wgEncodeBroadHistone/wgEncodeBroadHistoneGm12878H3k4me3StdAlnRep1.bam
+wget -c http://hgdownload.soe.ucsc.edu/goldenPath/hg19/encodeDCC/wgEncodeBroadHistone/wgEncodeBroadHistoneGm12878H3k4me3StdAlnRep2.bam
+
+rm -f -r processed_reads
 mkdir processed_reads
-samtools view wgEncodeBroadHistoneGm12878H3k04me1StdAlnRep1V2.bam | EpiSAFARI -preprocess_reads SAM stdin processed_reads
+samtools view wgEncodeBroadHistoneGm12878H3k4me3StdAlnRep1.bam | EpiSAFARI -preprocess_reads SAM stdin processed_reads
+samtools view wgEncodeBroadHistoneGm12878H3k4me3StdAlnRep2.bam | EpiSAFARI -preprocess_reads SAM stdin processed_reads
 ```
-If there are multiple replicates of reads to be pooled, they can be done at once or separately. If done separately, EpiSAFARI pools the reads automatically and uses the total signal profile in the analyses.<br><br>
+This example pools the 2 replicates of data. If there are more multiple replicates of reads to be pooled, they can be done at once or separately. If done separately, EpiSAFARI pools the reads automatically and uses the total signal profile in the analyses as in the example above.<br><br>
 
 We strongly recommend removing duplicates from the reads. This decreases feature identification time quite much:<br>
 ```
@@ -87,7 +91,7 @@ max_max_err=5
 max_avg_err=3
 l_win=1000
 sparse_data=0
-l_post_filter=-1
+l_post_filter=10
 
 ## bedGraph files:
 ./bin/EpiSAFARI -bspline_encode bedGraphs ${n_spline_coeffs} ${spline_order} ${max_max_err} ${max_avg_err} ${l_win} ${sparse_data} ${l_post_filter}
@@ -102,6 +106,8 @@ l_post_filter=-1
 We next do feature identification. We first download the multi-mappability signal then identify the features:<br>
 
 ```
+seq_dir=hg19_seq
+mmap_dir=hg19_36bp
 mkdir hg19_36bp
 cd hg19_36bp
 wget -c http://archive.gersteinlab.org/proj/MUSIC/multimap_profiles/hg19/hg19_36bp.tar.bz2
@@ -127,7 +133,7 @@ EpiSAFARI -get_significant_extrema bedGraphs ${max_trough_sig} ${min_summit_sig}
 ## mapped read files:
 EpiSAFARI -get_significant_extrema processed_reads/dedup ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data}
 
-# Filter: Remove peaks with lower FDR higher than log(0.05), hill scores lower than 0.99 and average multi-mappability higher than 1.2.
+# Filter: Remove peaks with FDR higher than log(0.05), hill scores lower than 0.99 and average multi-mappability higher than 1.2.
 cat processed_reads/dedup/significant_valleys.bed | awk {'if(NR==1){print $0};if($18<-3 && $10>=0.99 && $11>=0.99 && $8<1.2)print $0'} > sign.bed
 
 # Merge valleys with minima closer than 200 base pairs.
@@ -193,6 +199,8 @@ l_post_filter=50
 ./bin/EpiSAFARI -bspline_encode DNAm_bgrs ${n_spline_coeffs} ${spline_order} ${max_max_err} ${max_avg_err} ${l_win} ${sparse_data} ${l_post_filter}
  
 # Compute valleys.
+seq_dir=hg19_seq
+mmap_dir=hg19_36bp
 max_trough_sig=1000
 min_summit_sig=0.7
 min_summit2trough_frac=1.2
