@@ -163,11 +163,10 @@ Finally, you can also add ENCODE2 transcription factor binding annotations. We h
 wget http://harmancilab.org/tools/EpiSAFARI/wgEncodeAwgTfbs.gff.gz
 ./bin/EpiSAFARI -annotate_features bedGraphs wgEncodeAwgTfbs.gff.gz 0 annotated_features.bed
 ```
-<br>
 
 <h2>Sparse Mode</h2>
 
-EpiSAFARI can also process sparse signals. Examples of these include DNA methylation data, which happens only at cytosine nucleotides. For this, run EpiSAFARI with sparse_data=1 to enable sparse signal smoothing. We also turn on post-median filter on.<br><br>
+EpiSAFARI can also process sparse signals. Examples of these include DNA methylation data, which happens only at cytosine nucleotides. For this, run EpiSAFARI with sparse_data=1 to enable sparse signal smoothing. We also turn on post-median filter on.<br>
 
 We demonstrate this option on the DNA methylation data for H1hESC cell line from Roadmap Epigenome Project:
 ```
