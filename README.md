@@ -116,17 +116,24 @@ cd ..
 max_trough_sig=1000
 min_summit_sig=5
 min_summit2trough_frac=1.2
-l_vic=250
+max_summit2trough_dist=1000
+min_summit2trough_dist=0
 min_multimapp=1.2
+sparse_data=0
 
 ## bedGraph files:
-./bin/EpiSAFARI -get_significant_extrema bedGraphs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${l_vic} hg19_36bp ${min_multimapp} hg19_seq
+EpiSAFARI -get_significant_extrema bedGraphs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data}
 
 ## mapped read files:
-./bin/EpiSAFARI -get_significant_extrema processed_reads/dedup ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${l_vic} hg19_36bp ${min_multimapp} hg19_seq
-```
+EpiSAFARI -get_significant_extrema processed_reads/dedup ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data}
 
-Please increase <i>l_vic</i> to 500 to generate a more relaxed set of valleys.
+# Filter: Remove peaks with lower FDR higher than log(0.05), hill scores lower than 0.99 and average multi-mappability higher than 1.2.
+cat processed_reads/dedup/significant_valleys.bed | awk {'if(NR==1){print $0};if($18<-3 && $10>=0.99 && $11>=0.99 && $8<1.2)print $0'} > sign.bed
+
+# Merge valleys with minima closer than 200 base pairs.
+EpiSAFARI -merge_valleys sign.bed 200 merged_sign.bed
+
+```
 
 <h2>Feature Annotation</h2>
 
@@ -185,12 +192,23 @@ l_post_filter=50
 
 ./bin/EpiSAFARI -bspline_encode GSM1112838_bedGraphs ${n_spline_coeffs} ${spline_order} ${max_max_err} ${max_avg_err} ${l_win} ${sparse_data} ${l_post_filter}
  
-max_trough_sig=1
-min_summit_sig=0.5
+# Compute valleys.
+max_trough_sig=1000
+min_summit_sig=0.7
 min_summit2trough_frac=1.2
-l_vic=5000
+max_summit2trough_dist=2000
+min_summit2trough_dist=250
 min_multimapp=1.2
-./bin/EpiSAFARI -get_significant_extrema GSM1112838_bedGraphs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${l_vic} hg19_36bp ${min_multimapp} hg19_seq
+sparse_data=1
+
+EpiSAFARI -get_significant_extrema GSM1112838_bedGraphs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data}
+
+# Filter: Remove methyl-valleys with FDR higher than log(0.05), CpG count less than 20, hill score less than 0.99, and GC content less than 0.4.
+cat bgrs/significant_valleys.bed | awk {'if($18<-3 && $16>20 && $10>=0.99 && $11>=0.99 && $8<1.2 && ($13+$14)/($12+$13+$14+$15)>0.4)print $0'} > sign.bed
+
+# Merge the methl-valleys whose minima are within 200 base pairs of each other.
+EpiSAFARI -merge_valleys sign.bed 200 merged_sign.bed
+
 ```
 
 <h2>Visualization of the Signal</h2>
@@ -229,6 +247,9 @@ This is an extended bed file with following columns:<br>
 <li>[Left hill quality]: Fraction of the nucleotides on the left hill</li>
 <li>[Right hill quality]: Fraction of the nucleotides on the right hill</li>
 <li>[Nucleotide counts]: Count of nucleotides in the valley: A, C, G, T counts from left maximum to right maximum</li>
+<li>[CpG count]: Number of CpG dinucleotides in the valley
+<li>[P-value]: P-value of the valley
+<li>[FDR]: False discovery rate at which valley is deemed significant
 <li>[Annotation]: Annotated element's name and type of the element (gene, exon, transcript, promoter, TF_peak)</li>
 </font></i>
 </div><br>
