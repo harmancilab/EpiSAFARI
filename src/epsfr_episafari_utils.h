@@ -75,8 +75,7 @@ vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* 
 	char* chrom_seq,
 	t_extrema_statistic_defition* extrema_statistic_defn);
 
-void annotate_features(char* signal_directory, char* gff_fp, int l_half_prom, char* op_fp);
-
+void annotate_features(char* valleys_bed_fp, char* gff_fp, int l_half_prom, char* op_fp);
 
 void select_points_of_interest_per_RD_signal_profile(double* signal_profile,
 	int start_i, int end_i,

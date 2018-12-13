@@ -39,7 +39,7 @@ Signal Feature Detection:\n\
 	-merge_valleys [Valleys BED file path] [Minimum-2-minimum distance for merging] [Output file path]\n\
 	-assign_valleys_2_regions [Regions BED file path] [Valleys BED file path]\n\
 Feature Annotation:\n\
-	-annotate_features [Signal directory] [GFF file path] [Half promoter length] [Output file path]\n\n",	argv[0]);
+	-annotate_features [Valleys BED file path] [GFF file path] [Half promoter length] [Output file path]\n\n",	argv[0]);
 }
 
 int main(int argc, char* argv[])
@@ -155,16 +155,16 @@ int main(int argc, char* argv[])
 	{
 		if (argc != 6)
 		{
-			fprintf(stderr, "%s -annotate_features [Signal directory] [GFF file path] [Half promoter length] [Output file path]\n", argv[0]);
+			fprintf(stderr, "%s -annotate_features [Valleys BED file path] [GFF file path] [Half promoter length] [Output file path]\n", argv[0]);
 			exit(0);
 		}
 
-		char* signal_directory = argv[2];
+		char* valleys_bed_fp = argv[2];
 		char* gff_fp = argv[3];
 		int l_prom = atoi(argv[4]);
 		char* op_fp = argv[5];
 
-		annotate_features(signal_directory, gff_fp, l_prom/2, op_fp);
+		annotate_features(valleys_bed_fp, gff_fp, l_prom/2, op_fp);
 	} // -annotate_features option.
 	else if (strcmp(argv[1], "-sort_reads") == 0)
 	{
@@ -731,7 +731,7 @@ int main(int argc, char* argv[])
 	{
 		if (argc != 5)
 		{
-			fprintf(stderr, "USAGE: %s -merge_valleys [Valley BED file path] [Output file path]\n", argv[0]);
+			fprintf(stderr, "USAGE: %s -merge_valleys [Valleys BED file path] [Output file path]\n", argv[0]);
 			exit(0);
 		}
 

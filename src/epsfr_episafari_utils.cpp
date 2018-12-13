@@ -1260,16 +1260,13 @@ vector<t_annot_region*>* load_annotation(char* gff_fp, int l_half_prom)
 	return(annotation_regions);
 }
 
-void annotate_features(char* signal_directory, char* gff_fp, int l_half_prom, char* op_fp)
+void annotate_features(char* valleys_bed_fp, char* gff_fp, int l_half_prom, char* op_fp)
 {
 	// Load the gff file.
 	vector<t_annot_region*>* annotations = load_annotation(gff_fp, l_half_prom);
 	fprintf(stderr, "Loaded %d annotation elements.\n", (int)annotations->size());
 
-	// Load the feats.
-	char valleys_bed_fp[1000];
-	sprintf(valleys_bed_fp, "%s/significant_valleys.bed", signal_directory);
-
+	// Load the valleys.
 	vector<t_annot_region*>* valley_regs = load_BED_with_line_information(valleys_bed_fp);
 	fprintf(stderr, "Loaded %d valleys.\n", (int)valley_regs->size());
 
@@ -1305,8 +1302,21 @@ void annotate_features(char* signal_directory, char* gff_fp, int l_half_prom, ch
 	} // i_int loop.
 	delete_annot_regions(intersects);
 
-	// Dump annotations.	
+	// Read the header.
+	FILE* f_valleys = open_f(valleys_bed_fp, "r");
+	char* header_line = getline(f_valleys);
+	fclose(f_valleys);
+
+	// Save header then write annotated regions.
 	FILE* f_op = open_f(op_fp, "w");
+
+	// Add the header line.
+	if (header_line[0] == '#')
+	{
+		char* gff_fn = get_file_name(gff_fp);
+		fprintf(f_op, "%s\t%s_Annotation\n", header_line, gff_fn);
+	}
+
 	for (int i_val = 0; i_val < (int)valley_regs->size(); i_val++)
 	{
 		void** cur_valley_info = (void**)(valley_regs->at(i_val)->data);
@@ -1320,7 +1330,7 @@ void annotate_features(char* signal_directory, char* gff_fp, int l_half_prom, ch
 		}
 		else
 		{
-			// Process all the annotations.
+			// Process all the annotations from this file.
 			for (int i_ann = 0; i_ann < (int)annots->size(); i_ann++)
 			{
 				fprintf(f_op, "%s:%s;", annots->at(i_ann)->element_type, annots->at(i_ann)->element_name);
