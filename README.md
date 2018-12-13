@@ -204,7 +204,7 @@ sparse_data=1
 EpiSAFARI -get_significant_extrema GSM1112838_bedGraphs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data}
 
 # Filter: Remove methyl-valleys with FDR higher than log(0.05), CpG count less than 20, hill score less than 0.99, and GC content less than 0.4.
-cat bgrs/significant_valleys.bed | awk {'if($18<-3 && $16>20 && $10>=0.99 && $11>=0.99 && $8<1.2 && ($13+$14)/($12+$13+$14+$15)>0.4)print $0'} > sign.bed
+cat GSM1112838_bedGraphs/significant_valleys.bed | awk {'if($18<-3 && $16>20 && $10>=0.99 && $11>=0.99 && $8<1.2 && ($13+$14)/($12+$13+$14+$15)>0.4)print $0'} > sign.bed
 
 # Merge the methl-valleys whose minima are within 200 base pairs of each other.
 EpiSAFARI -merge_valleys sign.bed 200 merged_sign.bed
@@ -246,8 +246,11 @@ This is an extended bed file with following columns:<br>
 <li>[Maximum multi-mappability signal]: MAximum multi-mappability signal on the valley </li>
 <li>[Left hill quality]: Fraction of the nucleotides on the left hill</li>
 <li>[Right hill quality]: Fraction of the nucleotides on the right hill</li>
-<li>[Nucleotide counts]: Count of nucleotides in the valley: A, C, G, T counts from left maximum to right maximum</li>
-<li>[CpG count]: Number of CpG dinucleotides in the valley
+<li>[A count]: Count of A nucleotides in the valley</li>
+<li>[C count]: Count of C nucleotides in the valley</li>
+<li>[G count]: Count of G nucleotides in the valley</li>
+<li>[T count]: Count of T nucleotides in the valley</li>
+<li>[CpG count]: Count of CpG dinucleotides in the valley
 <li>[P-value]: P-value of the valley
 <li>[FDR]: False discovery rate at which valley is deemed significant
 <li>[Annotation]: Annotated element's name and type of the element (gene, exon, transcript, promoter, TF_peak)</li>
