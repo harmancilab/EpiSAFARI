@@ -129,12 +129,14 @@ sparse_data=0
 
 ## bedGraph files:
 EpiSAFARI -get_significant_extrema bedGraphs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data}
+all_valleys_fp=bedGraphs/significant_valleys.bed
 
 ## mapped read files:
 EpiSAFARI -get_significant_extrema processed_reads/dedup ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data}
+all_valleys_fp=processed_reads/dedup/significant_valleys.bed
 
 # Filter: Remove peaks with FDR higher than log(0.05), hill scores lower than 0.99 and average multi-mappability higher than 1.2.
-cat processed_reads/dedup/significant_valleys.bed | awk {'if(NR==1){print $0};if($18<-3 && $10>=0.99 && $11>=0.99 && $8<1.2)print $0'} > sign.bed
+cat ${all_valleys_fp} | awk {'if(NR==1){print $0};if($18<-3 && $10>=0.99 && $11>=0.99 && $8<1.2)print $0'} > sign.bed
 
 # Merge valleys with minima closer than 200 base pairs.
 EpiSAFARI -merge_valleys sign.bed 200 merged_sign.bed
@@ -151,18 +153,18 @@ wget -c ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_19/genco
 l_promoter=1000
 
 ## bedGraph files:
-./bin/EpiSAFARI -annotate_features bedGraphs gencode.v19.annotation.gff3.gz ${l_promoter} annotated_features.bed
+./bin/EpiSAFARI -annotate_features merged_sign.bed gencode.v19.annotation.gff3.gz ${l_promoter} annotated_features.bed
 
-## mapped read files:
-./bin/EpiSAFARI -annotate_features processed_reads/dedup gencode.v19.annotation.gff3.gz ${l_promoter} annotated_features.bed
 ```
 
 Finally, you can also add ENCODE2 transcription factor binding annotations. We have built the GFF file for the uniformly processed peaks of 690 transcription factors from the ENCODE2 cell lines that you can download and use to annotate the features:
 
 ```
-wget http://harmancilab.org/tools/EpiSAFARI/wgEncodeAwgTfbs.gff.gz
-./bin/EpiSAFARI -annotate_features bedGraphs wgEncodeAwgTfbs.gff.gz 0 annotated_features.bed
+wget -c http://harmancilab.org/tools/EpiSAFARI/wgEncodeAwgTfbs.gff.gz
+./bin/EpiSAFARI -annotate_features merged_sign.bed wgEncodeAwgTfbs.gff.gz 0 annotated_features.bed
 ```
+
+Annotation adds a new annotation column to every entry in the valleys file and automatically updates the header.
 
 <h2>Sparse Mode</h2>
 
@@ -215,6 +217,8 @@ cat DNAm_bgrs/significant_valleys.bed | awk {'if($18<-3 && $16>20 && $10>=0.99 &
 
 # Merge the methl-valleys whose minima are within 200 base pairs of each other.
 EpiSAFARI -merge_valleys sign.bed 200 merged_sign.bed
+
+./bin/EpiSAFARI -annotate_features merged_sign.bed wgEncodeAwgTfbs.gff.gz 0 annotated_features.bed
 
 ```
 
