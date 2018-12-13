@@ -163,9 +163,9 @@ wget http://harmancilab.org/tools/EpiSAFARI/wgEncodeAwgTfbs.gff.gz
 
 EpiSAFARI can also process sparse signals. Examples of these include DNA methylation data, which happens only at cytosine nucleotides. For this, run EpiSAFARI with sparse_data=1 to enable sparse signal smoothing. We also turn on post-median filter on.<br><br>
 
-We demonstrate this option on a DNA methylation dataset from Roadmap Epigenome Project:
+We demonstrate this option on the DNA methylation data for H1hESC cell line from Roadmap Epigenome Project:
 ```
-wget -c ftp://ftp.ncbi.nlm.nih.gov/pub/geo/DATA/roadmapepigenomics/by_experiment/Bisulfite-Seq/brain_hippocampus_middle/GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig.gz
+wget -c ftp://ftp.genboree.org/EpigenomeAtlas/Current-Release/experiment-sample/Bisulfite-Seq/H1_Cell_Line/UCSD.H1.Bisulfite-Seq.combined.wig.gz
 
 wget http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/bigWigToBedGraph
 wget http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/wigToBigWig
@@ -174,13 +174,13 @@ chmod 755 fetchChromSizes
 chmod 755 wigToBigWig
 chmod 755 bigWigToBedGraph
 
-gzip -cd GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig.gz > GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig
+gzip -cd UCSD.H1.Bisulfite-Seq.combined.wig.gz > UCSD.H1.Bisulfite-Seq.combined.wig
 ./fetchChromSizes hg19 > hg19.list
-./wigToBigWig GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig hg19.list GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig.bw
-./bigWigToBedGraph GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig.bw GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig.bw.bgr
+./wigToBigWig UCSD.H1.Bisulfite-Seq.combined.wig hg19.list UCSD.H1.Bisulfite-Seq.combined.wig.bw
+./bigWigToBedGraph UCSD.H1.Bisulfite-Seq.combined.wig.bw UCSD.H1.Bisulfite-Seq.combined.wig.bw.bgr
 
-mkdir GSM1112838_bedGraphs
-./bin/EpiSAFARI -separate_bedGraph_2_chromosomes GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig.bw.bgr GSM1112838_bedGraphs
+mkdir DNAm_bgrs
+./bin/EpiSAFARI -separate_bedGraph_2_chromosomes GSM1112838_BI.Brain_Hippocampus_Middle.Bisulfite-Seq.149.wig.bw.bgr DNAm_bgrs
 
 n_spline_coeffs=10
 spline_order=5
@@ -190,7 +190,7 @@ l_win=5000
 sparse_data=1 
 l_post_filter=50
 
-./bin/EpiSAFARI -bspline_encode GSM1112838_bedGraphs ${n_spline_coeffs} ${spline_order} ${max_max_err} ${max_avg_err} ${l_win} ${sparse_data} ${l_post_filter}
+./bin/EpiSAFARI -bspline_encode DNAm_bgrs ${n_spline_coeffs} ${spline_order} ${max_max_err} ${max_avg_err} ${l_win} ${sparse_data} ${l_post_filter}
  
 # Compute valleys.
 max_trough_sig=1000
@@ -201,10 +201,10 @@ min_summit2trough_dist=250
 min_multimapp=1.2
 sparse_data=1
 
-EpiSAFARI -get_significant_extrema GSM1112838_bedGraphs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data}
+EpiSAFARI -get_significant_extrema DNAm_bgrs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data}
 
 # Filter: Remove methyl-valleys with FDR higher than log(0.05), CpG count less than 20, hill score less than 0.99, and GC content less than 0.4.
-cat GSM1112838_bedGraphs/significant_valleys.bed | awk {'if($18<-3 && $16>20 && $10>=0.99 && $11>=0.99 && $8<1.2 && ($13+$14)/($12+$13+$14+$15)>0.4)print $0'} > sign.bed
+cat DNAm_bgrs/significant_valleys.bed | awk {'if($18<-3 && $16>20 && $10>=0.99 && $11>=0.99 && $8<1.2 && ($13+$14)/($12+$13+$14+$15)>0.4)print $0'} > sign.bed
 
 # Merge the methl-valleys whose minima are within 200 base pairs of each other.
 EpiSAFARI -merge_valleys sign.bed 200 merged_sign.bed
