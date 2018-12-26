@@ -240,7 +240,7 @@ The bigWig file named <i>spline_coded_1.bgr.bw</i> can be opened in IGV to visua
 <div style="text-align:center;"><img src="example.png" alt="Could not load example." width="1000" align="center"></div>
 
 <h2>Output format</h2>
-EpiSAFARI outputs the identified features to files named "significant_valleys_[chrosome id].bed" for each chromosome.<br><br>
+EpiSAFARI outputs the identified features to files named "significant_valleys.bed".<br><br>
 
 This is an extended bed file with following columns:<br>
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
