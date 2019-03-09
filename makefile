@@ -28,6 +28,8 @@ ${LIB_DIR}/epsfr_nucleotide.o \
 ${LIB_DIR}/epsfr_genomics_coords.o \
 ${LIB_DIR}/epsfr_nomenclature.o\
 ${LIB_DIR}/epsfr_annot_region_tools.o \
+${LIB_DIR}/epsfr_rng.o \
+${LIB_DIR}/epsfr_seed_manager.o \
 ${LIB_DIR}/epsfr_utils.o \
 ${LIB_DIR}/epsfr_xlog_math.o 
 
