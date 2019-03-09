@@ -3,6 +3,8 @@
 #include <string.h>
 #include "epsfr_episafari_utils.h"
 #include "epsfr_xlog_math.h"
+#include "epsfr_rng.h"
+#include "epsfr_seed_manager.h"
 #include "epsfr_nucleotide.h"
 #include "epsfr_genomics_coords.h"
 #include "epsfr_nomenclature.h"
@@ -235,8 +237,98 @@ double* buffer_log_factorials(int n)
 	return(factorials);
 }
 
+double get_valley_significance_per_multinomial_test(double* signal_profile, int l_profile, int left_max_posn, int right_max_posn, int min_posn, int l_normalizer, int scaling_factor, double* _log_factorials)
+{
+	// Divide the valley into 3 regions and compute enrichment over min position for each of these.
+	double min_vic_sig = 0;
+	double left_max_vic_sig = 0;
+	double right_max_vic_sig = 0;
+
+	for (int pos = left_max_posn - l_normalizer; pos <= left_max_posn + l_normalizer; pos++)
+	{
+		left_max_vic_sig += signal_profile[pos];
+	} // pos loop.
+
+	for (int pos = right_max_posn - l_normalizer; pos <= right_max_posn + l_normalizer; pos++)
+	{
+		right_max_vic_sig += signal_profile[pos];
+	} // pos loop.
+
+	for (int pos = min_posn - l_normalizer; pos <= min_posn + l_normalizer; pos++)
+	{
+		min_vic_sig += signal_profile[pos];
+	} // pos loop.
+
+	double norm_min_vic_sig = min_vic_sig * scaling_factor / l_normalizer;
+	double norm_left_max_vic_sig = left_max_vic_sig * scaling_factor / l_normalizer;
+	double norm_right_max_vic_sig = right_max_vic_sig * scaling_factor / l_normalizer;
+
+	// Setup the log factorials.
+	double* log_factorials = NULL;
+	if (_log_factorials == NULL)
+	{
+		log_factorials = buffer_log_factorials(100 * 1000 + 3);
+	}
+	else
+	{
+		log_factorials = _log_factorials;
+	}
+
+	norm_min_vic_sig = round(norm_min_vic_sig);
+	norm_left_max_vic_sig = round(norm_left_max_vic_sig);
+	norm_right_max_vic_sig = round(norm_right_max_vic_sig);
+
+	// Add the probability of enrichment on the left side.
+	int grand_total_int = (int)(norm_min_vic_sig + norm_left_max_vic_sig + round(norm_right_max_vic_sig));
+	double log_multinom_p_val = xlog(0);
+	double log_flip = -1 * log(3);
+
+	// Go over all the signal levels at the minimum and distribute.
+	for (int cur_min_sig = norm_min_vic_sig; cur_min_sig >= 0; cur_min_sig--)
+	{
+		int n_reads_2_distribute = norm_min_vic_sig - cur_min_sig;
+
+		// Update the current read configuration.
+		for (int n_new_left_reads = 0; n_new_left_reads <= n_reads_2_distribute; n_new_left_reads++)
+		{
+			int n_new_right_reads = n_reads_2_distribute - n_new_left_reads;
+
+			int n_left_reads = n_new_left_reads + norm_left_max_vic_sig;
+			int n_right_reads = n_new_right_reads + norm_right_max_vic_sig;
+
+			if (cur_min_sig + n_left_reads + n_right_reads != grand_total_int)
+			{
+				fprintf(stderr, "Sanity check failed in multinomial test: %d, %d, %d reads vs %d reads; (%.1f, %.1f, %.1f)\n", 
+					cur_min_sig, n_left_reads, n_right_reads, grand_total_int,
+					norm_min_vic_sig, norm_left_max_vic_sig, norm_right_max_vic_sig);
+
+				exit(0);
+			}
+
+			// Compute the probability.
+			double log_flip_prob = log_flip * grand_total_int;
+			double log_cur_perm = xlog_div(log_factorials[grand_total_int], xlog_mul(log_factorials[n_left_reads], xlog_mul(log_factorials[n_right_reads], cur_min_sig)));
+
+			log_multinom_p_val = xlog_sum(log_multinom_p_val, xlog_mul(log_cur_perm, log_flip_prob));
+		} // left_i loop.
+	} // cur_min_sig loop.
+
+	if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
+	{
+		fprintf(stderr, "Valley: %d-%d-%d: %lf, %lf: %lf (flip_prob: %.3f)\n", left_max_posn, min_posn, right_max_posn, norm_min_vic_sig, norm_left_max_vic_sig, norm_right_max_vic_sig, exp(log_flip));
+	}
+
+	// Free memory if it is allocated in the function.
+	if (_log_factorials == NULL)
+	{
+		delete[] log_factorials;
+	}
+
+	return(log_multinom_p_val);
+}
+
 // Compute binomial p-value of the signal imbalance on the valley.
-double get_valley_significance(double* signal_profile, int l_profile, int left_max_posn, int right_max_posn, int min_posn, int l_normalizer, int scaling_factor, double* _log_factorials)
+double get_valley_significance_per_binomial_test(int p_val_type, double* signal_profile, int l_profile, int left_max_posn, int right_max_posn, int min_posn, int l_normalizer, int scaling_factor, double* _log_factorials)
 {
 	// Divide the valley into 3 regions and compute enrichment over min position for each of these.
 	double min_vic_sig = 0;
@@ -312,7 +404,35 @@ double get_valley_significance(double* signal_profile, int l_profile, int left_m
 		delete[] log_factorials;
 	}
 
-	return(right_region_log_p_val + left_region_log_p_val);
+	//double merged_p_val = xlog(0);
+
+	if (p_val_type == VALLEY_SIGNIFICANCE_BINOMIAL_INTERSECTED_NULLS)
+	{
+		return(right_region_log_p_val + left_region_log_p_val);
+	}
+	else if (p_val_type == VALLEY_SIGNIFICANCE_BINOMIAL_UNION_NULLS)
+	{
+		double left_right = left_region_log_p_val + right_region_log_p_val;
+
+		// 1st way.
+		//double one_minus_left_region_log_p_val = xlog_sub(xlog(1.0), left_region_log_p_val);
+		//double one_minus_right_region_log_p_val = xlog_sub(xlog(1.0), right_region_log_p_val);
+
+		//double right_min_left = one_minus_left_region_log_p_val + right_region_log_p_val;
+		//double left_min_right = one_minus_right_region_log_p_val + left_region_log_p_val;
+		//return(xlog_sum(left_right, xlog_sum(left_min_right, right_min_left)));
+
+		// 2nd way.		
+		double merged_p_val = xlog_sum(left_region_log_p_val, right_region_log_p_val);
+		merged_p_val = xlog_sub(merged_p_val, left_right);
+		
+		return(merged_p_val);
+	}
+	else
+	{
+		fprintf(stderr, "No p-value type selected @ %s(%d)\n", __FILE__, __LINE__);
+		exit(0);
+	}
 }
 
 double get_binomial_p_val_per_enriched_background_values(int enriched_value, int background_value, double* _log_factorials)
@@ -656,6 +776,15 @@ vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* 
 		signal_profile[i] = MAX(0, signal_profile[i]);
 	} // i loop.
 
+	if (extrema_statistic_defn->hill_score_type == DIST_BASED_HILL_SCORE)
+	{
+		fprintf(stderr, "Assigning distance based hill scores.\n");
+	}
+	else if (extrema_statistic_defn->hill_score_type == HEIGHT_BASED_HILL_SCORE)
+	{
+		fprintf(stderr, "Assigning height based hill scores.\n");
+	}
+
 	// This is necessary to make computes faster for very long valleys.
 	//// Bin the signal for very long regions?
 	//int l_bin = 1;
@@ -775,6 +904,8 @@ vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* 
 						{
 							double cur_sig_diff = signal_profile[i] - signal_profile[i - 1];
 							double cur_deriv = derivative_map[i];
+
+							// If moving to left, revert the signs of derivative and signal difference.
 							if (dir == 0)
 							{
 								cur_deriv *= -1;
@@ -791,6 +922,7 @@ vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* 
 								cur_dir_total_neg_deriv_signs++;
 							}
 
+							// Following updates signal weighted hill score.
 							if (cur_sig_diff > 0)
 							{
 								cur_dir_total_pos_signal_increase += cur_sig_diff;
@@ -802,8 +934,17 @@ vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* 
 							}
 						} // i loop.
 
-						left_right_pos_der_frac[dir] = cur_dir_total_pos_deriv_signs / (cur_dir_total_pos_deriv_signs + cur_dir_total_neg_deriv_signs);
-						//left_right_pos_der_frac[dir] = cur_dir_total_pos_signal_increase / (cur_dir_total_pos_signal_increase + cur_dir_total_pos_signal_decrease);
+						// Increase/decrease count based hill score.
+						if (extrema_statistic_defn->hill_score_type == DIST_BASED_HILL_SCORE)
+						{
+							left_right_pos_der_frac[dir] = cur_dir_total_pos_deriv_signs / (cur_dir_total_pos_deriv_signs + cur_dir_total_neg_deriv_signs);
+						}
+
+						// Increase/decrease signal based hill score.
+						if (extrema_statistic_defn->hill_score_type == HEIGHT_BASED_HILL_SCORE)
+						{
+							left_right_pos_der_frac[dir] = cur_dir_total_pos_signal_increase / (cur_dir_total_pos_signal_increase + cur_dir_total_pos_signal_decrease);
+						}
 					} // dir loop.
 
 					// Compute the average multi-map signal within the valley.
@@ -872,7 +1013,17 @@ vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* 
 					double scaling_factor = extrema_statistic_defn->p_val_estimate_signal_scaling_factor;
 					t_valley_significance_info* sig_info = new t_valley_significance_info();
 					sig_info->log_q_val = 0;
-					sig_info->log_p_val = get_valley_significance(signal_profile, l_profile, cur_left_maxima->extrema_posn, cur_right_maxima->extrema_posn, cur_minima->extrema_posn, l_vic, scaling_factor, log_factorials);
+
+					if (extrema_statistic_defn->p_val_type == VALLEY_SIGNIFICANCE_BINOMIAL_INTERSECTED_NULLS ||
+						extrema_statistic_defn->p_val_type == VALLEY_SIGNIFICANCE_BINOMIAL_UNION_NULLS)
+					{
+						sig_info->log_p_val = get_valley_significance_per_binomial_test(extrema_statistic_defn->p_val_type, signal_profile, l_profile, cur_left_maxima->extrema_posn, cur_right_maxima->extrema_posn, cur_minima->extrema_posn, l_vic, scaling_factor, log_factorials);
+					}
+					else if (extrema_statistic_defn->p_val_type == VALLEY_SIGNIFICANCE_MULTINOMIAL)
+					{
+						sig_info->log_p_val = get_valley_significance_per_multinomial_test(signal_profile, l_profile, cur_left_maxima->extrema_posn, cur_right_maxima->extrema_posn, cur_minima->extrema_posn, l_vic, scaling_factor, log_factorials);
+					}
+
 					new_valley->significance_info = sig_info;
 
 					new_valley->data = valley_info;
@@ -1387,6 +1538,7 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 										int l_frag,
 										int n_spline_coeff,
 										int bspline_order,
+										char brkpts_type,
 										int min_n_pts_2_encode,
 										int max_dist_between_cons_pts,
 										double max_top_err, 
@@ -1407,14 +1559,16 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 		exit(0);
 	}
 
-	fprintf(stderr, "Saving the original bedgraph file.\n");
-	char orig_bgr_fp[1000];
-	sprintf(orig_bgr_fp, "%s/original_%s.bgr", signal_dir, chr_id);
-	dump_bedGraph_per_per_nucleotide_binary_profile(signal_profile, l_track, chr_id, orig_bgr_fp);
+	if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
+	{
+		fprintf(stderr, "Saving the original bedgraph file.\n");
+		char orig_bgr_fp[1000];
+		sprintf(orig_bgr_fp, "%s/original_%s.bgr", signal_dir, chr_id);
+		dump_bedGraph_per_per_nucleotide_binary_profile(signal_profile, l_track, chr_id, orig_bgr_fp);
 
-	char comp_orig_bgr_fp[1000];
-	sprintf(comp_orig_bgr_fp, "%s/original_%s.bgr.gz", signal_dir, chr_id);
-	compressFile(orig_bgr_fp, comp_orig_bgr_fp);
+		char comp_orig_bgr_fp[1000];
+		sprintf(comp_orig_bgr_fp, "%s/original_%s.bgr.gz", signal_dir, chr_id);
+		compressFile(orig_bgr_fp, comp_orig_bgr_fp);
 
 	// Delete the uncompressed file.
 #ifdef _WIN32
@@ -1424,6 +1578,7 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 #ifdef __unix__
 	unlink(orig_bgr_fp);
 #endif
+	}
 
 	//if (!check_file(mapped_reads_fp))
 	//{
@@ -1444,6 +1599,9 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 
 	//double top_err_perc_frac = 0.95;
 
+	t_rng* rng = new t_rng(t_seed_manager::seed_me());
+
+	double aggregate_total_err = 0;
 	int start_i = 1;
 	while (start_i < l_track)
 	{
@@ -1489,10 +1647,13 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 			double max_err = 0;
 			int cur_n_spline_coeff = n_spline_coeff;
 			int cur_bspline_order = bspline_order;
+			double total_POI_signal = 0;
 
 			// Copy vectors.
 			for (int i_l = 0; i_l < (int)x_vec->size(); i_l++)
 			{
+				total_POI_signal += y_vec->at(i_l);
+
 				x[i_l] = (x_vec->at(i_l) - start_i);
 				y[i_l] = y_vec->at(i_l);
 			} // i_l loop.
@@ -1509,9 +1670,8 @@ if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
 			fclose(f_input);
 }
 
-			while (total_err == 0 ||
-				total_err / n_data_points > max_avg_err ||
-				top_perc_err > max_top_err)
+			// This is the error tracking loop.
+			do
 			{
 				if (n_data_points < cur_n_spline_coeff)
 				{
@@ -1522,8 +1682,32 @@ if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
 				total_err = 0;
 				max_err = 0;
 
-				// Do fitting.
-				bsplinefit(n_data_points, cur_n_spline_coeff, cur_bspline_order, x, y, reconst_y, coeff);
+				//// Do fitting.				
+				//if (brkpts_type == UNIFORM_BREAKPOINTS)
+				//{
+				//	bsplinefit(n_data_points, cur_n_spline_coeff, cur_bspline_order, x, y, reconst_y, coeff);
+				//}
+				//else
+				//{
+				bsplinefit_nonuniform_per_breakpoint_type(n_data_points,
+					cur_n_spline_coeff - cur_bspline_order, // This gives us the number of internal breakpoints.
+					brkpts_type,
+					cur_bspline_order,
+					x, y,
+					reconst_y,
+					coeff,
+					rng,
+					false);
+				//}
+				//else if (HILL_DERIVATIVE_NU_BREAKPOINTS)
+				//{
+				//	bsplinefit_nonuniform_per_hill_derivative(n_data_points,
+				//		cur_n_spline_coeff - cur_bspline_order,
+				//		cur_bspline_order,
+				//		x, y,
+				//		reconst_y,
+				//		coeff);
+				//}
 
 				// compute the errors only on the fit locations.
 				vector<double>* errors = new vector<double>();
@@ -1592,11 +1776,12 @@ if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
 					}
 				} // i loop.
 
-				fprintf(stderr, "Window %d-%d: %d coefficients, spline order %d, %d POIs: Error: %lf, Avg Error: %lf, Top Error @ %d: %lf                 \r",
+				fprintf(stderr, "Window %d-%d: %d coefficients, spline order %d, %d POIs (Total %.2f): Error: %lf, Avg Error: %lf, Top Error @ %d: %lf                 \r",
 					start_i, end_i,
 					cur_n_spline_coeff,
 					cur_bspline_order,
 					(int)x_vec->size(),
+					total_POI_signal,
 					total_err, 
 					total_err / n_data_points, 
 					top_err_perc_index, top_perc_err);
@@ -1607,6 +1792,10 @@ if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
 				// Do not change the order, this may create overfitting, which is not what we want.
 				//cur_bspline_order += 2;
 			} // spline fitting loop.
+			while (total_err / n_data_points > max_avg_err ||
+				top_perc_err > max_top_err);
+
+			aggregate_total_err += total_err;
 
 			delete[] reconst_y;
 			delete[] x;
@@ -1631,6 +1820,19 @@ if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
 
 		start_i += l_win;
 	} // l_win loop.
+
+	double absolute_aggregate_total_err = 0;
+	for (int i = 1; i < l_track; i++)
+	{
+		absolute_aggregate_total_err += fabs(spline_fit_profile[i] - signal_profile[i]);
+	} // i loop.
+
+	fprintf(stderr, "\nAggregate total error: %lf\nAbsolute error: %lf", aggregate_total_err, absolute_aggregate_total_err);
+
+	// Write the error summary.
+	FILE* f_errors = open_f("error_summary.txt", "a");
+	fprintf(f_errors, "%s\t%lf\t%lf\t%d\n", chr_id, aggregate_total_err, absolute_aggregate_total_err, l_track);
+	fclose(f_errors);
 
 	// Median smooth the data.
 	if (l_med_filt_win > 0)

@@ -10,6 +10,8 @@
 #include "epsfr_gsl_polyfit_utils.h"
 #include "epsfr_episafari_utils.h"
 #include "epsfr_min_max_utils.h"
+#include "epsfr_rng.h"
+#include "epsfr_seed_manager.h"
 #include "epsfr_genomics_coords.h"
 
 #include <time.h>
@@ -29,17 +31,18 @@ Input Data Processing:\n\
 	BedGraph/Sequence Processing:\n\
 		-separate_bedGraph_2_chromosomes [bedGraph file path (\"stdin\" for piped input)] [Output directory]\n\
 		-preprocess_FASTA [Directory with fasta files] [Sequence extension (e.g., fasta, fa)] [Output directory]\n\
+	B-spline Processing:\n\
+		-save_basis_splines [Number of breakpoints including ends] [Spline Degree]\n\
 Signal Feature Detection:\n\
-	-bspline_encode [bedGraph/processed reads directory path] [# Spline Coefficients] [Spline Order (>=2)] [Max max error] [Max avg error] [window length] [Sparse data flag (0/1)] [Post Median Filter Length]\n\
+	-bspline_encode [bedGraph/processed reads directory path] [# Spline Coefficients] [Spline Order (>=2)] [Breakpoints type (Uniform=0;Derivative=1;Vicinity_Derivative=2;Random=3)] [Max max error] [Max avg error] [window length] [Sparse data flag (0/1)] [Post Median Filter Length]\n\
 	-get_significant_extrema [Encoded signals data directory path] \
 [Maximum signal at trough] [Minimum signal at summit] \
-[Minimum summit2trough ratio per trough] \
-[Minimum summit2trough distance in bps] [Maximum summit2trough distance in bps] \
-[Multi-mappability profile directory] [Maximum multimapp signal at trough] [Genome sequence directory] [Q-value threshold] [Sparse data flag (0/1)]\n\
+[Minimum summit2trough ratio per trough] [Minimum summit2trough distance in bps] [Maximum summit2trough distance in bps] \
+[Multi-mappability profile directory] [Maximum multimapp signal at trough] [Genome sequence directory] [Q-val threshold] [Sparse data flag (0/1)] [P-value type: 0: Binomial (Mult.), 1: Binomial (Merge), 2: Multinomial]\n\
 	-merge_valleys [Valleys BED file path] [Minimum-2-minimum distance for merging] [Output file path]\n\
 	-assign_valleys_2_regions [Regions BED file path] [Valleys BED file path]\n\
 Feature Annotation:\n\
-	-annotate_features [Valleys BED file path] [GFF file path] [Half promoter length] [Output file path]\n\n",	argv[0]);
+	-annotate_features [Valleys BED file path] [GFF file path] [Half promoter length] [Output file path]\n",argv[0]);
 }
 
 int main(int argc, char* argv[])
@@ -60,6 +63,75 @@ int main(int argc, char* argv[])
 		print_usage(argv);
 		exit(0);
 	}
+	else if (strcmp(argv[1], "-save_basis_splines") == 0)
+	{
+		if (argc != 5)
+		{
+			fprintf(stderr, "%s -save_basis_splines [Number of breakpoints including ends] [Spline Degree] [Breakpoint type (0: Uniform / 1: Derivative / 2: Vicinity Derivative / 3: Random)]\n", argv[0]);
+			exit(0);
+		}
+
+		int n_brkpts = atoi(argv[2]);
+		int spline_degree = atoi(argv[3]);
+		int brkpts_type_index = atoi(argv[4]);
+
+		char brkpts_type = -1;
+		if (brkpts_type_index == 0)
+		{
+			fprintf(stderr, "Uniform breakpoints.\n");
+			brkpts_type = UNIFORM_BREAKPOINTS;
+		}
+		else if (brkpts_type_index == 1)
+		{
+			fprintf(stderr, "Cannot use Derivative-based breakpoints.\n");
+			brkpts_type = DERIVATIVE_NU_BREAKPOINTS;
+			exit(0);
+		}
+		else if (brkpts_type_index == 2)
+		{
+			fprintf(stderr, "Cannot use Vicinity derivative-based breakpoints.\n");
+			brkpts_type = VICINITY_DERIVATIVE_NU_BREAKPOINTS;
+			exit(0);
+		}
+		else if (brkpts_type_index == 3)
+		{
+			fprintf(stderr, "Random breakpoints.\n");
+			brkpts_type = RANDOM_NU_BREAKPOINTS;
+		}
+
+		int n_spline_coeff = spline_degree + n_brkpts - 2;
+
+		int max_n_internal_breakpoints = n_brkpts - 2;
+
+		int n_data_pts = 1000;
+		double* dx = new double[n_data_pts + 2];
+		double* dy = new double[n_data_pts + 2];
+
+		for (int i = 0; i < n_data_pts; i++)
+		{
+			dx[i] = i;
+			dy[i] = i^2;
+		} // i loop.
+
+		double* reconst_y = new double[n_data_pts + 2];
+
+		double* coeff = new double[n_spline_coeff + 2];
+
+		fprintf(stderr, "Saving the basis splines for %d data points using %d breakpoints and %d-degree spline.\n", n_data_pts, n_brkpts, spline_degree);
+
+		t_rng* rng = new t_rng(t_seed_manager::seed_me());
+
+		// Save the basis splines using uniform breakpoints.
+		bsplinefit_nonuniform_per_breakpoint_type(n_data_pts,
+			max_n_internal_breakpoints,
+			brkpts_type,
+			spline_degree,
+			dx, dy,
+			reconst_y,
+			coeff,
+			rng,
+			true);
+	} // -save_basis_splines option.
 	else if (strcmp(argv[1], "-assign_valleys_2_regions") == 0)
 	{
 		if (argc != 5)
@@ -560,9 +632,9 @@ int main(int argc, char* argv[])
 		}
 		else if (strcmp(format_str, "bowtie") == 0)
 		{
-			// Read the bowtie file specified at the command line, separate it: Generate a mapped _reads file for each chromosome.
-			//parse_bowtie_formatted_mapped_reads_file(chr_fps, parsed_reads_op_dir, chip_seq_eland_op_fp);
-			preprocess_mapped_reads_file(mapped_reads_fp, op_dir, preprocess_bowtie_read_line, false);
+		// Read the bowtie file specified at the command line, separate it: Generate a mapped _reads file for each chromosome.
+		//parse_bowtie_formatted_mapped_reads_file(chr_fps, parsed_reads_op_dir, chip_seq_eland_op_fp);
+		preprocess_mapped_reads_file(mapped_reads_fp, op_dir, preprocess_bowtie_read_line, false);
 		}
 		else if (strcmp(format_str, "BED5") == 0)
 		{
@@ -584,16 +656,16 @@ int main(int argc, char* argv[])
 	} // -preprocess option.
 	if (t_string::compare_strings(argv[1], "-get_significant_extrema"))
 	{
-		if (argc != 13)
+		if (argc != 14)
 		{
 			fprintf(stderr, "USAGE: %s -get_significant_extrema [Encoded signals data directory path] \
 [Maximum signal at trough] [Minimum signal at summit] \
 [Minimum summit2trough ratio per trough] [Minimum summit2trough distance in bps] [Maximum summit2trough distance in bps] \
-[Multi-mappability profile directory] [Maximum multimapp signal at trough] [Genome sequence directory] [Q-val threshold] [Sparse data flag (0/1)]\n", argv[0]);
+[Multi-mappability profile directory] [Maximum multimapp signal at trough] [Genome sequence directory] [Q-val threshold] [Sparse data flag (0/1)] [P-value type: 0: Binomial (Mult.), 1: Binomial (Merge), 2: Multinomial]\n", argv[0]);
 			exit(0);
 		}
 
-		char* signal_data_dir = argv[2];		
+		char* signal_data_dir = argv[2];
 		double max_signal_at_trough = atof(argv[3]);
 		double min_signal_at_summit = atof(argv[4]);
 		double min_summit2trough_ratio_per_trough = atof(argv[5]);
@@ -604,6 +676,7 @@ int main(int argc, char* argv[])
 		char* genome_seq_dir = argv[10];
 		double log_q_val_threshold = log(atof(argv[11]));
 		bool sparse_valleys = (argv[12][0] == '1');
+		char p_val_type = atoi(argv[13]);
 
 		char chr_ids_list_fp[1000];
 		sprintf(chr_ids_list_fp, "%s/chr_ids.txt", signal_data_dir);
@@ -627,6 +700,10 @@ int main(int argc, char* argv[])
 		extrema_statistic_defn->p_val_estimate_signal_scaling_factor = 1.0;
 		extrema_statistic_defn->sparse_profile = sparse_valleys;
 		extrema_statistic_defn->l_minima_vicinity_per_merging = 100;
+		extrema_statistic_defn->p_val_type = p_val_type;
+
+		//extrema_statistic_defn->hill_score_type = HEIGHT_BASED_HILL_SCORE;
+		extrema_statistic_defn->hill_score_type = DIST_BASED_HILL_SCORE;
 
 		if (sparse_valleys)
 		{
@@ -646,7 +723,21 @@ int main(int argc, char* argv[])
 			else
 			{
 				fprintf(stderr, "Detecting the features on %s\n", chr_id);
-			}			
+			}
+
+			// Report the significance method.
+			if (extrema_statistic_defn->p_val_type == VALLEY_SIGNIFICANCE_BINOMIAL_INTERSECTED_NULLS)
+			{
+				fprintf(stderr, "Using binomial distribution with multiplication for assessing significance.\n");
+			}
+			else if (extrema_statistic_defn->p_val_type == VALLEY_SIGNIFICANCE_BINOMIAL_UNION_NULLS)
+			{
+				fprintf(stderr, "Using binomial distribution with merging for assessing significance.\n");
+			}
+			else if (extrema_statistic_defn->p_val_type == VALLEY_SIGNIFICANCE_MULTINOMIAL)
+			{
+				fprintf(stderr, "Using multinomial distribution for assessing significance.\n");
+			}
 
 			char bin_signal_fp[1000];
 			sprintf(bin_signal_fp, "%s/spline_coded_%s.bin.gz", signal_data_dir, chr_id);
@@ -759,20 +850,45 @@ int main(int argc, char* argv[])
 	} // merge_valleys option.
 	else if (t_string::compare_strings(argv[1], "-bspline_encode"))
 	{
-		if (argc != 10)
+		if (argc != 11)
 		{
-			fprintf(stderr, "USAGE: %s -bspline_encode [bedGraph/processed reads directory path] [# Spline Coefficients] [Spline Order (>=2)] [Max max error] [Max avg error] [window length] [Sparse data flag (0/1)] [Post Median Filter Length]\n", argv[0]);
+			fprintf(stderr, "USAGE: %s -bspline_encode [bedGraph/processed reads directory path] [# Spline Coefficients] [Spline Order (>=2)] [Breakpoints type (Uniform=0;Derivative=1;Vicinity_Derivative=2;Random=3)] [Max max error] [Max avg error] [window length] [Sparse data flag (0/1)] [Post Median Filter Length]\n", argv[0]);
 			exit(0);
 		}
 
 		char* signal_dir = argv[2];
 		int n_spline_coeff = atoi(argv[3]);
 		int bspline_order = atoi(argv[4]);
-		double max_max_err = atof(argv[5]);
-		double max_avg_err = atof(argv[6]);
-		int l_win = atoi(argv[7]);
-		bool sparse_data_flag = (argv[8][0] == '1');
-		int l_med_filt_win = atoi(argv[9]);
+		int brkpts_type_index = atoi(argv[5]);
+		double max_max_err = atof(argv[6]);
+		double max_avg_err = atof(argv[7]);
+		int l_win = atoi(argv[8]);
+		bool sparse_data_flag = (argv[9][0] == '1');
+		int l_med_filt_win = atoi(argv[10]);
+
+		char brkpts_type = -1;
+		if (brkpts_type_index == 0)
+		{
+			fprintf(stderr, "Uniform breakpoints.\n");
+			brkpts_type = UNIFORM_BREAKPOINTS;
+		}
+		else if (brkpts_type_index == 1)
+		{
+			fprintf(stderr, "Derivative-based breakpoints.\n");
+			brkpts_type = DERIVATIVE_NU_BREAKPOINTS;
+		}
+		else if (brkpts_type_index == 2)
+		{
+			fprintf(stderr, "Vicinity derivative-based breakpoints.\n");
+			brkpts_type = VICINITY_DERIVATIVE_NU_BREAKPOINTS;
+		}
+		else if (brkpts_type_index == 3)
+		{
+			fprintf(stderr, "Random breakpoints.\n");
+			brkpts_type = RANDOM_NU_BREAKPOINTS;
+		}
+
+		fprintf(stderr, "Breakpoints type: %d\n", brkpts_type);
 
 		char chr_ids_list_fp[1000];
 		sprintf(chr_ids_list_fp, "%s/chr_ids.txt", signal_dir);
@@ -801,16 +917,18 @@ int main(int argc, char* argv[])
 			}
 
 			bspline_encode_mapped_read_profile(signal_dir, chr_ids->at(i_chr), l_frag,
-				n_spline_coeff, bspline_order, min_n_pts_2_encode, min_pt2pt_distance_in_bps,
+				n_spline_coeff, bspline_order,
+				brkpts_type,
+				min_n_pts_2_encode, min_pt2pt_distance_in_bps,
 				max_max_err, max_avg_err,
 				l_win, sparse_data_flag, top_err_perc_frac, l_med_filt_win);
 		} // i_chr loop.
 	} // -bspline_encode_mapped_read_profile option.
 
-	//FILE* f_beacon = open_f("beacon.log", "a");
+	FILE* f_beacon = open_f("timing.log", "a");
 	clock_t end_c = clock();
-	//fprintf(f_beacon, "EpiSAFARI finished in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+	fprintf(f_beacon, "%d\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
 	fprintf(stderr, "EpiSAFARI finished in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
-	//fclose(f_beacon);
+	fclose(f_beacon);
 }
 

@@ -8,13 +8,26 @@ using namespace std;
 struct t_extrema_statistic_defition;
 struct t_annot_region;
 
+enum {
+	VALLEY_SIGNIFICANCE_BINOMIAL_INTERSECTED_NULLS,
+	VALLEY_SIGNIFICANCE_BINOMIAL_UNION_NULLS,
+	VALLEY_SIGNIFICANCE_MULTINOMIAL,
+};
+
+enum {
+	HEIGHT_BASED_HILL_SCORE,
+	DIST_BASED_HILL_SCORE
+};
+
 struct t_valley_significance_info
 {
 	double log_p_val;
 	double log_q_val;
 };
 
-double get_valley_significance(double* signal_profile, int l_profile, int left_max_posn, int right_max_posn, int min_posn, int l_normalizer, int scaling_factor, double* _log_factorials);
+double get_valley_significance_per_binomial_test(int p_val_type, double* signal_profile, int l_profile, int left_max_posn, int right_max_posn, int min_posn, int l_normalizer, int scaling_factor, double* _log_factorials);
+
+double get_valley_significance_per_multinomial_test(double* signal_profile, int l_profile, int left_max_posn, int right_max_posn, int min_posn, int l_normalizer, int scaling_factor, double* _log_factorials);
 
 void get_benjamini_hochberg_corrected_p_values_per_valleys(vector<t_annot_region*>* valleys);
 
@@ -53,7 +66,11 @@ struct t_extrema_statistic_defition
 
 	bool sparse_profile;
 
+	char p_val_type;
+
 	int l_minima_vicinity_per_merging;
+
+	int hill_score_type;
 };
 
 struct t_episfr_annot_info
@@ -88,9 +105,10 @@ void bspline_encode_mapped_read_profile(char* signal_dir,
 	int l_frag,
 	int n_spline_coeff,
 	int bspline_order,
+	char brkpts_type,
 	int min_n_pts_2_encode,
 	int max_dist_between_cons_pts,
-	double max_max_err,
+	double max_top_err,
 	double max_avg_err,
 	int l_win,
 	bool sparse_profile,

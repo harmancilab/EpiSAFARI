@@ -2,7 +2,7 @@
 <font face="arial">
 <div style="text-align:center"><img src="episafari_logo.png" alt="Could not load logo." width="800" align="center"></div>
 <h1>EpiSAFARI</h1>
-EpiSAFARI is a command line tool for detection of signal features from the functional genomics signal profiles. <br><br>
+EpiSAFARI is a command line tool for detection of valley shaped patterns from the functional genomics signal profiles. <br><br>
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 - Signal Profile in bedGraph format, <br>
 - Mapped reads in SAM/bowtie/eland/... format. <br>
@@ -11,7 +11,7 @@ and outputs:<br>
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 - The spline smoothed signal profile. <br>
 - The valleys, local minima and maxima in the signal profile. <br>
-- Gene and transcription factors annotations, mappability values and nucleotide content for the signal features.
+- Gene and transcription factors annotations, mappability values and nucleotide content for the valley.
 </div>
 <br>
 
@@ -41,7 +41,47 @@ To get help on which options are available, use:
 ./bin/EpiSAFARI -help
 ```
 
-<h2>Usage</h2>
+<h2>Parameter Selection and Impact of Parameters</h2>
+EpiSAFARI uses a spline smoothing procedure with several parameters and these parameters can have impact on the sensitivity of the method.<br>
+
+The spline smoothing is based on projecting the epigenetic signal profile on basis splines and removing noise. The basis splines are defined in terms of a spline degree and a set of knots. <br>
+
+We generally observed that overly simple and complex smoothing causes underfitting and overfitting of the data and this decreases sensitivity of valley detection.
+
+<h3>Knot Selection</h3>
+The number of knots, and the placement of knots are important factors while smoothing the signal. We generally observed that increasing knot number above 7 creates overfitting when using windows of length 1000 base pairs. 
+
+On the other hand, the using a knot number below 6 seems to decrease sensitivitiy similarly because smoothed signal profile is underfit, i.e., does not represent the original signal well. Thus EpiSAFARI uses 7 knots by default.<br>
+
+The placements of knots along the signal domain is an open problem in spline based smoothing of signals. We compared several knot placement strategies (Uniform, Derivative-based, and Random) and found that uniform knot placement generally works comparable in accuracy as other knot placement strategies.<br>
+
+If it is necessary, the users can change the knot selection parameters while spline smoothing the data (See below)
+
+<h3>Spline Degree</h3>
+The spline degree tunes polynomial complexity of the basis spline curves. We observed that increasing the degree above 5 may cause overfitting and setting it below 3 may cause underfitting. Thus, by
+default, EpiSAFARI uses degree of 5.
+
+If it is necessary, this parameter while data is being smoothed using "-bspline_encode" option (See below).
+
+<h3>Setting the Number of Coefficients with new Spline Degree and Knot Selections</h3>
+If the spline degree or knot number is changed, the number of coefficients can be computed simply as (number of knots) + (spline degree) - 2. This value should be used as the number of coefficients
+parameter while spline smoothing the data.
+
+<h3>Window length</h3>
+The window length specifies the length of the window that is used while smoothing the data. Signal in each window is smoothed then concatenated. The large window lengths creates a large signal for smoothing.
+Therefore the knot numbers must be adjusted with the increasing window length. By fefault, EpiSAFARI's parameters are selections work well with 1000 base pair windows for dense signals. For sparse signals, such as
+DNA methylation, EpiSAFARI uses 5000 base pair long windows by default.
+
+This parameter can be changed while data is being smoothed.
+
+<h3>Hill Score Thresholds</h3>
+EpiSAFARI reports a hill score between 0 and 1 that is used to measure the topological quality of valleys. Hill score of 1 represents a valley that shows monotonically increasing signal while moving from the valley's dip to the summits.<br>
+
+The reported valleys must be filtered with respect to the reported hill scores. We observed that there is very high enrichment of valleys with hill scores close to 1.0. These valleys represent biologically meaningful valleys. Therefore EpiSAFARI uses hill score threshold of 0.99<br>
+
+If the hill score threshold is decreased, the valley redundancy increases: The fraction of reported valleys with overlaps increase. Depending on the application, this may be a useful and intended beheviour.<br>
+
+<h2>Usage Examples</h2>
 EpiSAFARI run starts with setting up the input files. (Note that we use samtools for converting BAM file to SAM files.). EpiSAFARI can take bedGraph files and mapped reads
 directly as input. It is necessary to divide the data into chromosomes.
 
@@ -74,7 +114,7 @@ samtools view wgEncodeBroadHistoneGm12878H3k4me3StdAlnRep2.bam | EpiSAFARI -prep
 ```
 This example pools the 2 replicates of data. If there are more multiple replicates of reads to be pooled, they can be done at once or separately. If done separately, EpiSAFARI pools the reads automatically and uses the total signal profile in the analyses as in the example above.<br>
 
-We strongly recommend removing duplicates from the reads. This decreases feature identification time quite much:<br>
+We strongly recommend removing duplicates from the reads. This decreases valley detection time quite much:<br>
 ```
 mkdir processed_reads/sorted processed_reads/dedup
 ./bin/EpiSAFARI -sort_reads processed_reads processed_reads/sorted
@@ -102,8 +142,8 @@ l_post_filter=10
 
 <i>n_spline_coeffs</i> controls the number of knots that are used to fit b-spline. It should not be set to a very high value as this may cause overfitting of the data.<br>
 
-<h2>Feature Detection</h2>
-We next do feature identification. We first download the multi-mappability signal then identify the features:<br>
+<h2>Valley Detection</h2>
+We next perform valley identification. We first download the multi-mappability signal then identify the valleys:<br>
 
 ```
 seq_dir=hg19_seq
@@ -135,17 +175,17 @@ all_valleys_fp=bedGraphs/significant_valleys.bed
 EpiSAFARI -get_significant_extrema processed_reads/dedup ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data}
 all_valleys_fp=processed_reads/dedup/significant_valleys.bed
 
-# Filter: Remove peaks with FDR higher than log(0.05), hill scores lower than 0.99 and average multi-mappability higher than 1.2.
+# Filter: Remove valleys with FDR higher than log(0.05), hill scores lower than 0.99 and average multi-mappability higher than 1.2.
 cat ${all_valleys_fp} | awk {'if(NR==1){print $0};if($18<-3 && $10>=0.99 && $11>=0.99 && $8<1.2)print $0'} > sign.bed
 
-# Merge valleys with minima closer than 200 base pairs.
+# Merge valleys with dips closer than 200 base pairs.
 EpiSAFARI -merge_valleys sign.bed 200 merged_sign.bed
 
 ```
 
-<h2>Feature Annotation</h2>
+<h2>Valley Annotation</h2>
 
-We finally perform feature annotation. We first download the GENCODE gene annotation gff file:
+We finally perform valley annotation. We first download the GENCODE gene annotation gff file:
 
 ```
 wget -c ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_19/gencode.v19.annotation.gff3.gz
@@ -240,7 +280,7 @@ The bigWig file named <i>spline_coded_1.bgr.bw</i> can be opened in IGV to visua
 <div style="text-align:center;"><img src="example.png" alt="Could not load example." width="1000" align="center"></div>
 
 <h2>Output format</h2>
-EpiSAFARI outputs the identified features to files named "significant_valleys.bed".<br><br>
+EpiSAFARI outputs the identified valleys to a BED file named "significant_valleys.bed".<br><br>
 
 This is an extended bed file with following columns:<br>
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
