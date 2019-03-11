@@ -170,18 +170,18 @@ sparse_data=0
 pval_type=0
 
 ## bedGraph files:
-EpiSAFARI -get_significant_extrema bedGraphs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data} ${pval_type}
+./bin/EpiSAFARI -get_significant_extrema bedGraphs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data} ${pval_type}
 all_valleys_fp=bedGraphs/significant_valleys.bed
 
 ## mapped read files:
-EpiSAFARI -get_significant_extrema processed_reads/dedup ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data} ${pval_type}
+./bin/EpiSAFARI -get_significant_extrema processed_reads/dedup ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data} ${pval_type}
 all_valleys_fp=processed_reads/dedup/significant_valleys.bed
 
 # Filter: Remove valleys with FDR higher than log(0.05), hill scores lower than 0.99 and average multi-mappability higher than 1.2.
 cat ${all_valleys_fp} | awk {'if(NR==1){print $0};if($18<-3 && $10>=0.99 && $11>=0.99 && $8<1.2)print $0'} > sign.bed
 
 # Merge valleys with dips closer than 200 base pairs.
-EpiSAFARI -merge_valleys sign.bed 200 merged_sign.bed
+./bin/EpiSAFARI -merge_valleys sign.bed 200 merged_sign.bed
 
 ```
 
@@ -254,13 +254,13 @@ min_multimapp=1.2
 sparse_data=1
 pval_type=0
 
-EpiSAFARI -get_significant_extrema DNAm_bgrs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data} ${pval_type}
+./bin/EpiSAFARI -get_significant_extrema DNAm_bgrs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data} ${pval_type}
 
 # Filter: Remove methyl-valleys with FDR higher than log(0.05), CpG count less than 20, hill score less than 0.99, and GC content less than 0.4.
 cat DNAm_bgrs/significant_valleys.bed | awk {'if(NR==1){print $0};if($18<-3 && $16>20 && $10>=0.99 && $11>=0.99 && $8<1.2 && ($13+$14)/($12+$13+$14+$15)>0.4)print $0'} > sign.bed
 
 # Merge the methl-valleys whose minima are within 200 base pairs of each other.
-EpiSAFARI -merge_valleys sign.bed 200 merged_sign.bed
+./bin/EpiSAFARI -merge_valleys sign.bed 200 merged_sign.bed
 
 ./bin/EpiSAFARI -annotate_features merged_sign.bed wgEncodeAwgTfbs.gff.gz 0 annotated_features.bed
 
