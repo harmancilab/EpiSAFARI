@@ -92,6 +92,20 @@ double* load_signal_covg_per_directory_chr_id(char* dat_dir,
 		return(covg_signal);
 	}
 
+	sprintf(cur_dat_fp, "%s/%s_mapped_reads.txt.gz", dat_dir, chr_id);
+	if (check_file(cur_dat_fp))
+	{
+		reads_loaded = true;
+		int l_buffer = 300 * 1000 * 1000;
+		covg_signal = new double[l_buffer + 2];
+
+		buffer_per_nucleotide_profile_no_buffer(cur_dat_fp, l_fragment,
+			covg_signal, NULL, NULL,
+			l_buffer, l_loaded_covg);
+
+		return(covg_signal);
+	}
+
 	// Search for BGR.
 	sprintf(cur_dat_fp, "%s/signal_%s.bgr.gz", dat_dir, chr_id);
 	if (check_file(cur_dat_fp))

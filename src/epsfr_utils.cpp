@@ -22,6 +22,17 @@ using namespace std;
 
 bool __DUMP_UTIL_MESSAGES__ = false;
 
+void delete_file(const char* fp)
+{
+#ifdef __unix__
+	unlink(fp);
+#endif
+
+#ifdef _WIN32
+	remove(fp);
+#endif
+}
+
 int compressFile(const char* inFile, const char * const outFileName)
 {
 #ifdef __unix__

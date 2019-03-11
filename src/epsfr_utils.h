@@ -23,6 +23,7 @@ struct t_file_buffer
 
 class t_string;
 
+void delete_file(const char* fp);
 int compressFile(const char* inFile, const char * const outFileName);
 
 bool does_file_exist(char* path);

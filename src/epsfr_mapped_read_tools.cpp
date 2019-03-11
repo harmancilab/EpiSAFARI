@@ -68,6 +68,16 @@ void buffer_per_nucleotide_profile_no_buffer(char* sorted_read_fp, const int l_e
 	{
 		f_sorted_reads = stdin;
 	}
+	else if (t_string::ends_with(sorted_read_fp, ".gz"))
+	{
+		char ungzip_cmd[1000];
+		sprintf(ungzip_cmd, "gzip -cd %s", sorted_read_fp);
+#ifdef _WIN32
+		f_sorted_reads = _popen(ungzip_cmd, "r");
+#else 
+		f_sorted_reads = popen(ungzip_cmd, "r");
+#endif
+	}
 	else
 	{
 		f_sorted_reads = open_f(sorted_read_fp, "r");
@@ -258,6 +268,14 @@ void buffer_per_nucleotide_profile_no_buffer(char* sorted_read_fp, const int l_e
 	if (t_string::compare_strings(sorted_read_fp, "stdin"))
 	{
 	}
+	else if (t_string::ends_with(sorted_read_fp, ".gz"))
+	{
+#ifdef _WIN32
+		_pclose(f_sorted_reads);
+#else 
+		pclose(f_sorted_reads);
+#endif
+	}
 	else
 	{
 		fclose(f_sorted_reads);
@@ -413,56 +431,55 @@ vector<int>* get_chromosome_lengths_per_mapped_reads(char* mapped_reads_dir)
 }
 
 // Generic preprocessing function for mapped read files.
-void preprocess_mapped_reads_file(char* mrf_fp, char* parsed_reads_op_dir, void (preprocess_mapped_read_line)(char* cur_line, 
+void preprocess_mapped_reads_file(char* mrf_fp, char* parsed_reads_op_dir, void (preprocess_mapped_read_line)(char* cur_line,
 	char* read_id,
-	char* chrom, 
-	int& chr_index, int& sequenced_length, 
-	char& strand_char, 
+	char* chrom,
+	int& chr_index, int& sequenced_length,
+	char& strand_char,
 	char* mapping_quality_str),
 	bool dump_read_id)
 {
-    // Divide SAM output with respect to chromosomes.
-    FILE* f_mrf = NULL;
-	t_file_buffer* mrf_file_buffer = NULL;
-	if(strcmp(mrf_fp, "stdin") == 0)
+	FILE* f_mrf = NULL;
+	if (strcmp(mrf_fp, "stdin") == 0)
 	{
 		f_mrf = stdin;
 	}
 	else
 	{
-		mrf_file_buffer = load_file(mrf_fp);
+		f_mrf = open_f(mrf_fp, "r");
 	}
 
-	if(f_mrf == NULL && mrf_file_buffer == NULL)
+	if (f_mrf == NULL)
 	{
-		fprintf(stderr, "mapped read file pointer and file buffer are both NULL for %s\n", mrf_fp);
+		fprintf(stderr, "Could not open %s\n", mrf_fp);
 		return;
 	}
 
-    //char cur_line[100000];
-    int n_frags = 0;
-    //int n_total_frags = 0;
+	//char cur_line[100000];
+	int n_frags = 0;
+	//int n_total_frags = 0;
 
-    vector<FILE*>* frag_f_ptrs = new vector<FILE*>();
+	vector<FILE*>* frag_f_ptrs = new vector<FILE*>();
+	vector<char*>* frag_fps = new vector<char*>();
 
 	// Check chromosome id's list file.
 	char chr_ids_fp[100000];
 	sprintf(chr_ids_fp, "%s/chr_ids.txt", parsed_reads_op_dir);
 
 	vector<char*>* chr_ids = NULL;
-	if(check_file(chr_ids_fp))
+	if (check_file(chr_ids_fp))
 	{
 		chr_ids = buffer_file(chr_ids_fp);
 
 		fprintf(stderr, "Found chromosome id's @ %s, pooling.\n", chr_ids_fp);
 
 		// Open the files for appending.
-		for(int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
+		for (int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
 		{
 			char new_fn[1000];
 			sprintf(new_fn, "%s/%s_mapped_reads.txt", parsed_reads_op_dir, chr_ids->at(i_chr));
 			fprintf(stderr, "Opening %s for pooling.\n", new_fn);
-			if(!check_file(new_fn))
+			if (!check_file(new_fn))
 			{
 				fprintf(stderr, "Could not open %s\n", new_fn);
 				open_f(chr_ids_fp, "w");
@@ -480,40 +497,30 @@ void preprocess_mapped_reads_file(char* mrf_fp, char* parsed_reads_op_dir, void 
 		chr_ids = new vector<char*>();
 	}
 
-	while(1)
+	while (1)
 	{
-		//char* cur_line = getline(f_mrf);
-		char* cur_line = NULL;
-		if(mrf_file_buffer != NULL)
-		{
-			cur_line = getline_per_file_buffer(mrf_file_buffer);
-		}
-		else if(f_mrf != NULL)
-		{
-			cur_line = getline(f_mrf);
-		}
-
-		if(cur_line == NULL)
+		char* cur_line = getline(f_mrf);
+		if (cur_line == NULL)
 		{
 			break;
 		}
-		
+
 		// Load the mapping info based on the file type.
 		char chrom[1000];
 		char read_id[1000];
 		int chr_index;
 		int sequenced_length;
-		char strand_char; 
+		char strand_char;
 		char mapping_quality_str[20000];
 		preprocess_mapped_read_line(cur_line,
-									read_id,
-									chrom, 
-									chr_index, sequenced_length, 
-									strand_char, 
-									mapping_quality_str);
+			read_id,
+			chrom,
+			chr_index, sequenced_length,
+			strand_char,
+			mapping_quality_str);
 
 		// Make sure that the line is valid.
-		if(chr_index >= 1 &&
+		if (chr_index >= 1 &&
 			chrom[0] != 0)
 		{
 			// Normalize the chromosome id to comply with the naming.
@@ -523,7 +530,7 @@ void preprocess_mapped_reads_file(char* mrf_fp, char* parsed_reads_op_dir, void 
 			int i_chr = t_string::get_i_str(chr_ids, chrom);
 
 			// If the chromosome does not exist in the list opened and accumulated so far, add the id to the list and also open the processed read file.
-			if(i_chr == (int)chr_ids->size())
+			if (i_chr == (int)chr_ids->size())
 			{
 				// Add the chromosome id.
 				chr_ids->push_back(t_string::copy_me_str(chrom));
@@ -534,19 +541,20 @@ void preprocess_mapped_reads_file(char* mrf_fp, char* parsed_reads_op_dir, void 
 
 				// Does the file exist? If so, use the file, do not overwrite.
 				frag_f_ptrs->push_back(open_f(new_fn, "w"));
+				frag_fps->push_back(t_string::copy_me_str(new_fn));
 
 				fprintf(stderr, "Added %s\n", chrom);
 			}
 
 			FILE* cur_frag_file = frag_f_ptrs->at(i_chr);
 
-			if(cur_frag_file == NULL)
+			if (cur_frag_file == NULL)
 			{
-					//printf("Could not resolve file pointer for fragment with file name %s\n", chr_fn);
+				//printf("Could not resolve file pointer for fragment with file name %s\n", chr_fn);
 			}
 			else
 			{
-				if(dump_read_id)
+				if (dump_read_id)
 				{
 					fprintf(cur_frag_file, "%s %s %c %d\n", read_id, mapping_quality_str, strand_char, chr_index);
 				}
@@ -558,12 +566,12 @@ void preprocess_mapped_reads_file(char* mrf_fp, char* parsed_reads_op_dir, void 
 			}
 		} // check if the line corresponds to a valid mapped nucleotide.
 
-		delete [] cur_line;
+		delete[] cur_line;
 	} // file reading loop.
 
-	// (Re)Dump the chromosome id list.
+	  // (Re)Dump the chromosome id list.
 	FILE* f_chrs = open_f(chr_ids_fp, "w");
-	for(int i_chr = 0; i_chr< (int)chr_ids->size(); i_chr++)
+	for (int i_chr = 0; i_chr< (int)chr_ids->size(); i_chr++)
 	{
 		fprintf(f_chrs, "%s\n", chr_ids->at(i_chr));
 	} // i_chr loop.
@@ -571,19 +579,30 @@ void preprocess_mapped_reads_file(char* mrf_fp, char* parsed_reads_op_dir, void 
 	fclose(f_chrs);
 
 	// Close fragment file pointers.
-	for(int i_f = 0; i_f < (int)frag_f_ptrs->size(); i_f++)
+	for (int i_f = 0; i_f < (int)frag_f_ptrs->size(); i_f++)
 	{
 		fclose(frag_f_ptrs->at(i_f));
-	}
 
-	// Unload/close the mapped read file.
-	if(f_mrf != NULL)
+		// Compress and delete.
+		char comp_frag_fp[1000];
+		sprintf(comp_frag_fp, "%s.gz", frag_fps->at(i_f));
+		fprintf(stderr, "Compressing to %s\n", comp_frag_fp);
+		compressFile(frag_fps->at(i_f), comp_frag_fp);
+		delete_file(frag_fps->at(i_f));
+
+		delete[] frag_fps->at(i_f);
+	} // i_f loop.
+
+	delete frag_f_ptrs;
+	delete frag_fps;
+
+	  // Unload/close the mapped read file.
+	if (strcmp(mrf_fp, "stdin") == 0)
+	{
+	}
+	else
 	{
 		fclose(f_mrf);
-	}
-	else if(mrf_file_buffer != NULL)
-	{
-		unload_file(mrf_file_buffer);
 	}
 }
 

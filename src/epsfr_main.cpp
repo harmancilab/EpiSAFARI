@@ -276,12 +276,19 @@ int main(int argc, char* argv[])
 		{
 			fprintf(stderr, "Processing %s\n", chr_ids->at(i_chr));
 			char cur_chr_reads_fp[1000];
-			sprintf(cur_chr_reads_fp, "%s/%s_mapped_reads.txt", preprocessed_reads_dir, chr_ids->at(i_chr));
+			sprintf(cur_chr_reads_fp, "%s/%s_mapped_reads.txt.gz", preprocessed_reads_dir, chr_ids->at(i_chr));
 
-			FILE* f_cur_chr_reads = open_f(cur_chr_reads_fp, "r");
+			char ungzip_cmd[1000];
+			sprintf(ungzip_cmd, "gzip -cd %s", cur_chr_reads_fp);
+
+			FILE* f_cur_chr_reads = NULL;
+#ifdef _WIN32
+			f_cur_chr_reads = _popen(ungzip_cmd, "r");
+#else 
+			f_cur_chr_reads = popen(ungzip_cmd, "r");
+#endif
 
 			// Load the entries, store them in a buffer.
-			//FILE* f_cur_chr_reads = open_f(cur_chr_reads_fp, "r");
 			vector<FILE*>* bucket_f_list = new vector<FILE*>();
 			vector<int>* bucket_starts = new vector<int>();
 			vector<int>* bucket_sizes = new vector<int>();
@@ -341,7 +348,11 @@ int main(int argc, char* argv[])
 				delete[] cur_line;
 			} // file reading loop.
 
-			fclose(f_cur_chr_reads);
+#ifdef _WIN32
+			_pclose(f_cur_chr_reads);
+#else 
+			pclose(f_cur_chr_reads);
+#endif
 
 			for (int i_st = 0; i_st < (int)bucket_f_list->size(); i_st++)
 			{
@@ -376,6 +387,12 @@ int main(int argc, char* argv[])
 				delete cur_sorted_bucket_read_lines;
 			} // i_buck loop.
 			fclose(f_cur_chr_sorted_reads);
+
+			char comp_cur_chr_sorted_reads_fp[1000];
+			sprintf(comp_cur_chr_sorted_reads_fp, "%s.gz", cur_chr_sorted_reads_fp);
+			fprintf(stderr, "Compressing to %s.\n", comp_cur_chr_sorted_reads_fp);
+			compressFile(cur_chr_sorted_reads_fp, comp_cur_chr_sorted_reads_fp);
+			delete_file(cur_chr_sorted_reads_fp);
 
 			delete bucket_starts;
 			delete bucket_sizes;
@@ -416,8 +433,17 @@ int main(int argc, char* argv[])
 		{
 			fprintf(stderr, "Pruning %s\n", chr_ids->at(i_chr));
 			char cur_chr_reads_fp[1000];
-			sprintf(cur_chr_reads_fp, "%s/%s_mapped_reads.txt", sorted_preprocessed_reads_dir, chr_ids->at(i_chr));
-			FILE* f_cur_chr_reads = open_f(cur_chr_reads_fp, "r");
+			sprintf(cur_chr_reads_fp, "%s/%s_mapped_reads.txt.gz", sorted_preprocessed_reads_dir, chr_ids->at(i_chr));
+
+			char ungzip_cmd[1000];
+			sprintf(ungzip_cmd, "gzip -cd %s", cur_chr_reads_fp);
+
+			FILE* f_cur_chr_reads = NULL;
+#ifdef _WIN32
+			f_cur_chr_reads = _popen(ungzip_cmd, "r");
+#else 
+			f_cur_chr_reads = popen(ungzip_cmd, "r");
+#endif
 
 			char cur_chr_pruned_reads_fp[1000];
 			sprintf(cur_chr_pruned_reads_fp, "%s/%s_mapped_reads.txt", pruned_reads_dir, chr_ids->at(i_chr));
@@ -472,10 +498,22 @@ int main(int argc, char* argv[])
 				// Free line memory.
 				delete[] cur_line;
 			} // file reading loop.
-			fclose(f_cur_chr_reads);
+
+#ifdef _WIN32
+			_pclose(f_cur_chr_reads);
+#else 
+			pclose(f_cur_chr_reads);
+#endif
+
 			fclose(f_cur_chr_pruned_reads);
 
 			fprintf(stderr, "Processed %d reads, pruned to %d reads.\n", n_processed_reads, n_pruned_reads);
+			
+			char comp_cur_chr_pruned_reads_fp[1000];
+			sprintf(comp_cur_chr_pruned_reads_fp, "%s.gz", cur_chr_pruned_reads_fp);
+			fprintf(stderr, "Compressing to %s.\n", comp_cur_chr_pruned_reads_fp);
+			compressFile(cur_chr_pruned_reads_fp, comp_cur_chr_pruned_reads_fp);
+			delete_file(cur_chr_pruned_reads_fp);
 		} // i_chr loop.
 	} // -remove_duplicates
 	else if (strcmp(argv[1], "-separate_bedGraph_2_chromosomes") == 0)
