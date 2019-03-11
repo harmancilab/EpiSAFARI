@@ -79,7 +79,7 @@ EpiSAFARI reports a hill score between 0 and 1 that is used to measure the topol
 
 The reported valleys must be filtered with respect to the reported hill scores. We observed that there is very high enrichment of valleys with hill scores close to 1.0. These valleys represent biologically meaningful valleys. Therefore EpiSAFARI uses hill score threshold of 0.99<br>
 
-If the hill score threshold is decreased, the valley redundancy increases: The fraction of reported valleys with overlaps increase. Depending on the application, this may be a useful and intended beheviour.<br>
+If the hill score threshold is decreased, the valley redundancy increases: The fraction of reported valleys with overlaps increase. Depending on the application, this may be a useful and intended behaviour.<br>
 
 <h2>Usage Examples</h2>
 EpiSAFARI run starts with setting up the input files. (Note that we use samtools for converting BAM file to SAM files.). EpiSAFARI can take bedGraph files and mapped reads
