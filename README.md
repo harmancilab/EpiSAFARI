@@ -138,7 +138,7 @@ brkpt_type=0
 ./bin/EpiSAFARI -bspline_encode bedGraphs ${n_spline_coeffs} ${spline_order} ${brkpt_type} ${max_max_err} ${max_avg_err} ${l_win} ${sparse_data} ${l_post_filter}
 
 ## mapped read files:
-./bin/EpiSAFARI -bspline_encode processed_reads/dedup ${n_spline_coeffs} ${brkpt_type} ${spline_order} ${max_max_err} ${max_avg_err} ${l_win} ${sparse_data} ${l_post_filter}
+./bin/EpiSAFARI -bspline_encode processed_reads/dedup ${n_spline_coeffs} ${spline_order} ${brkpt_type} ${max_max_err} ${max_avg_err} ${l_win} ${sparse_data} ${l_post_filter}
 ```
 
 <i>n_spline_coeffs</i> controls the number of knots that are used to fit b-spline. It should not be set to a very high value as this may cause overfitting of the data.<br>
