@@ -314,13 +314,13 @@ This is an extended bed file with following columns:<br>
 
 <h2>Assigning Valleys to Promoters and Detection of Supervalleys</h2>
 
-EpiSAFARI can assign the valleys to the gene promoters to identify a tentatie list of supervalleys around gene promoters.
+EpiSAFARI can assign the valleys to the gene promoters to identify a tentative list of supervalleys around gene promoters.
 
 ```
 # Download GENCODE Annotations.
 wget -c ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_19/gencode.v19.annotation.gff3.gz
 
-# Parse the promoters
+# Parse the promoters as TSS +/- 10kb.
 gzip -cd gencode.v19.annotation.gff3.gz | awk 'BEGIN{FS="\t"}{if($3=="gene"){gene_start=$4;if($7=="-"){gene_start=$5;};split($9, arr, ";");for(i=1;i<=length(arr);i++){if (arr[i] ~/gene_name=/){gene_name=arr[i]}};print $1"\t"gene_start-10000"\t"gene_start+10000"\t"gene_name"\t.\t"$7}}' > promoters.bed
 
 # Assign the valleys to the gene promoters.
@@ -330,4 +330,5 @@ EpiSAFARI -assign_valleys_2_regions promoters.bed merged_sign.bed valleys_2_prom
 sort -n -k7,7 valleys_2_promoters.bed -r | head -n 200 | awk {'print $4'} | sort -u > genes_with_supervalleys.list
 ```
 
+Above code assigns the valleys to the promoters. The output file 'valleys_2_promoters.bed' contains the number (and the list) of valleys around the promoters of all the genes.
 </html>
