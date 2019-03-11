@@ -41,7 +41,7 @@ To get help on which options are available, use:
 ./bin/EpiSAFARI -help
 ```
 
-<h2>Parameter Selection and Impact of Parameters</h2>
+<h2>Parameter Selection and Impact of Parameters on Detected Valleys</h2>
 EpiSAFARI uses a spline smoothing procedure with several parameters and these parameters can have impact on the sensitivity of the method.<br>
 
 The spline smoothing is based on projecting the epigenetic signal profile on basis splines and removing noise. The basis splines are defined in terms of a spline degree and a set of knots. <br>
@@ -311,5 +311,23 @@ This is an extended bed file with following columns:<br>
 <li>[Annotation]: Annotated element's name and type of the element (gene, exon, transcript, promoter, TF_peak)</li>
 </font></i>
 </div><br>
+
+<h2>Assigning Valleys to Promoters and Detection of Supervalleys</h2>
+
+EpiSAFARI can assign the valleys to the gene promoters to identify a tentatie list of supervalleys around gene promoters.
+
+```
+# Download GENCODE Annotations.
+wget -c ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_19/gencode.v19.annotation.gff3.gz
+
+# Parse the promoters
+gzip -cd gencode.v19.annotation.gff3.gz | awk 'BEGIN{FS="\t"}{if($3=="gene"){gene_start=$4;if($7=="-"){gene_start=$5;};split($9, arr, ";");for(i=1;i<=length(arr);i++){if (arr[i] ~/gene_name=/){gene_name=arr[i]}};print $1"\t"gene_start-10000"\t"gene_start+10000"\t"gene_name"\t.\t"$7}}' > promoters.bed
+
+# Assign the valleys to the gene promoters.
+EpiSAFARI -assign_valleys_2_regions promoters.bed merged_sign.bed valleys_2_promoters.bed
+
+# Sort the promoters with respect to number of valleys around promoter and get a list of the gene symbols.
+sort -n -k7,7 valleys_2_promoters.bed -r | head -n 200 | awk {'print $4'} | sort -u > genes_with_supervalleys.list
+```
 
 </html>
