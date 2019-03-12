@@ -578,23 +578,24 @@ void preprocess_mapped_reads_file(char* mrf_fp, char* parsed_reads_op_dir, void 
 
 	fclose(f_chrs);
 
-	// Close fragment file pointers.
-	for (int i_f = 0; i_f < (int)frag_f_ptrs->size(); i_f++)
-	{
-		fclose(frag_f_ptrs->at(i_f));
+	//// Close fragment file pointers.
+	//for (int i_f = 0; i_f < (int)frag_f_ptrs->size(); i_f++)
+	//{
+	//	fclose(frag_f_ptrs->at(i_f));
 
-		// Compress and delete.
-		char comp_frag_fp[1000];
-		sprintf(comp_frag_fp, "%s.gz", frag_fps->at(i_f));
-		fprintf(stderr, "Compressing to %s\n", comp_frag_fp);
-		compressFile(frag_fps->at(i_f), comp_frag_fp);
-		delete_file(frag_fps->at(i_f));
+	//	// Compress and delete.
+	//	char comp_frag_fp[1000];
+	//	sprintf(comp_frag_fp, "%s.gz", frag_fps->at(i_f));
+	//	fprintf(stderr, "Compressing to %s\n", comp_frag_fp);
+	//	compressFile(frag_fps->at(i_f), comp_frag_fp);
+	//	delete_file(frag_fps->at(i_f));
 
-		delete[] frag_fps->at(i_f);
-	} // i_f loop.
+	//	delete[] frag_fps->at(i_f);
+	//} // i_f loop.
 
-	delete frag_f_ptrs;
-	delete frag_fps;
+	//delete frag_fps;
+
+	delete frag_f_ptrs;	
 
 	  // Unload/close the mapped read file.
 	if (strcmp(mrf_fp, "stdin") == 0)
