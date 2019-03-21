@@ -2,6 +2,8 @@
 <font face="arial">
 <div style="text-align:center"><img src="episafari_logo.png" alt="Could not load logo." width="800" align="center"></div>
 <h1>EpiSAFARI</h1>
+Valley patterns, a dip between two summits, are prevalently observed in the genomewide profiles of many functional genomics signals such as ChIP-Seq, WGBS, RepliSeq, etc. The valleys potentially delineate the locations of functionally important elements, e.g. cis-regulatory elements such as enhancers, promoters and etc.<br><br>
+
 EpiSAFARI is a command line tool for detection of valley shaped patterns from the functional genomics signal profiles. <br><br>
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 - Signal Profile in bedGraph format, <br>
