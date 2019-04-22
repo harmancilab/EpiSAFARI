@@ -184,15 +184,15 @@ int main(int argc, char* argv[])
 			{
 				sort(cur_reg_valleys->begin(), cur_reg_valleys->end(), sort_regions);
 
-				fprintf(f_op, "\t%d\t%d", cur_reg_valleys->at(0)->start, cur_reg_valleys->back()->end);
+				fprintf(f_op, "\t%d-%d", cur_reg_valleys->at(0)->start, cur_reg_valleys->back()->end);
 				for (int i_val = 0; i_val < (int)cur_reg_valleys->size(); i_val++)
 				{
-					fprintf(f_op, "\t%d\t%d", cur_reg_valleys->at(i_val)->start, cur_reg_valleys->at(i_val)->end);
+					fprintf(f_op, ";%d-%d", cur_reg_valleys->at(i_val)->start, cur_reg_valleys->at(i_val)->end);
 				} // i_val loop.
 			}
 			else
 			{
-				fprintf(f_op, "\t%d\t%d", regs->at(i_reg)->start, regs->at(i_reg)->end);
+				fprintf(f_op, "\t%d-%d", regs->at(i_reg)->start, regs->at(i_reg)->end);
 			}
 
 			fprintf(f_op, "\n");
