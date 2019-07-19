@@ -345,10 +345,10 @@ When there are multiple samples (different cell lines, samples generated under d
 EpiSAFARI can be used to compare the valleys in the two samples. For this, use the 2 sample comparison option. Below, we assume the GM12878 and K562 valleys are detected using above commands. We perform valley comparison as below:
 ```
 # Compare samples.
-sample1_signal_dir=../GM12878/processed_reads/dedup
-sample1_valleys_fp=../GM12878/merged_sign.bed 
-sample2_signal_dir=../K562/processed_reads/dedup
-sample2_valleys_fp=../K562/merged_sign.bed 
+sample1_signal_dir=./GM12878/processed_reads/dedup
+sample1_valleys_fp=./GM12878/merged_sign.bed 
+sample2_signal_dir=./K562/processed_reads/dedup
+sample2_valleys_fp=./K562/merged_sign.bed 
 ./bin/EpiSAFARI -get_2_sample_differential_valleys ${sample1_valleys_fp} ${sample1_signal_dir} ${sample2_valleys_fp} ${sample2_signal_dir} 0 2
 
 # Now we filter out the valleys with respect to p-value.
