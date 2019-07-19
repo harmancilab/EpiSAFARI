@@ -1561,7 +1561,7 @@ vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* 
 			fprintf(stderr, "Processing %d. extrema.               \r", i_ext);
 		}
 
-		if (i_ext == all_extrema_regs->size() - 1)
+		if (i_ext == (int)all_extrema_regs->size() - 1)
 		{
 			fprintf(stderr, "\n");
 		}
