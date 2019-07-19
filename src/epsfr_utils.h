@@ -24,7 +24,7 @@ struct t_file_buffer
 class t_string;
 
 void delete_file(const char* fp);
-int compressFile(const char* inFile, const char * const outFileName);
+//int compressFile(const char* inFile, const char * const outFileName);
 
 bool does_file_exist(char* path);
 void get_current_working_directory(char* buffer);
@@ -38,6 +38,7 @@ bool check_file(const char* fp);
 void validate_file(char* fp);
 char* x_fgets(char* buff, int size, FILE* file);
 FILE* open_f(const char* fp, const char* mode);
+void close_f(FILE* f, const char* fp);
 vector<char*>* load_directory_files(char* root_dir, char* extension);
 char* get_file_name(char* fp);
 char* get_file_extension(char* fp);

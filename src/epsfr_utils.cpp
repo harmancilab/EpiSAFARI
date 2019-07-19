@@ -14,7 +14,7 @@
 	#include <sys/stat.h>
 	#include <unistd.h>
 
-	#include <zlib.h>
+	//#include <zlib.h>
 	#include <limits.h> /* for PATH_MAX */
 #endif
 
@@ -33,40 +33,42 @@ void delete_file(const char* fp)
 #endif
 }
 
-int compressFile(const char* inFile, const char * const outFileName)
-{
-#ifdef __unix__
-
-	FILE *in = open_f(inFile, "rb");
-
-	char buf[BUFSIZ] = { 0 };
-	size_t bytes_read = 0;
-	gzFile out = gzopen(outFileName, "wb");
-	if (!out)
-	{
-		/* Handle error */
-		fprintf(stderr, "Unable to open %s for writing\n", outFileName);
-		return -1;
-	}
-	bytes_read = fread(buf, 1, BUFSIZ, in);
-	while (bytes_read > 0)
-	{
-		int bytes_written = gzwrite(out, buf, bytes_read);
-		if (bytes_written == 0)
-		{
-			int err_no = 0;
-			fprintf(stderr, "Error during compression: %s", gzerror(out, &err_no));
-			gzclose(out);
-			return -1;
-		}
-		bytes_read = fread(buf, 1, BUFSIZ, in);
-	}
-	gzclose(out);
-
-	fclose(in);
-#endif
-	return 0;
-}
+///*
+//int compressFile(const char* inFile, const char * const outFileName)
+//{
+//#ifdef __unix__
+//
+//	FILE *in = open_f(inFile, "rb");
+//
+//	char buf[BUFSIZ] = { 0 };
+//	size_t bytes_read = 0;
+//	gzFile out = gzopen(outFileName, "wb");
+//	if (!out)
+//	{
+//		/* Handle error */
+//		fprintf(stderr, "Unable to open %s for writing\n", outFileName);
+//		return -1;
+//	}
+//	bytes_read = fread(buf, 1, BUFSIZ, in);
+//	while (bytes_read > 0)
+//	{
+//		int bytes_written = gzwrite(out, buf, bytes_read);
+//		if (bytes_written == 0)
+//		{
+//			int err_no = 0;
+//			fprintf(stderr, "Error during compression: %s", gzerror(out, &err_no));
+//			gzclose(out);
+//			return -1;
+//		}
+//		bytes_read = fread(buf, 1, BUFSIZ, in);
+//	}
+//	gzclose(out);
+//
+//	fclose(in);
+//#endif
+//	return 0;
+//}
+//*/
 
 char* get_file_extension(char* fp)
 {
@@ -473,25 +475,73 @@ void validate_file(char* fp)
 
 }
 
-
 FILE* open_f(const char* fp, const char* mode)
 {
-	if(fp == NULL || mode == NULL)
+	if (fp == NULL || mode == NULL)
 	{
 		printf("Invalid arguments to open_f for %s.\n", fp);
 		exit(0);
 	}
 
-	FILE* f = fopen(fp, mode);
-
-	if(f == NULL)
+	FILE* f = NULL;
+	if (strcmp(fp, "stdin") == 0)
 	{
-		if(mode[0] == 'r')
+		f = stdin;
+	}
+	else if (strcmp(fp, "stdout") == 0)
+	{
+		f = stdout;
+	}
+	else if (strcmp(fp, "stderr") == 0)
+	{
+		f = stderr;
+	}
+	else if (t_string::ends_with(fp, "gz"))
+	{
+		if (mode[0] == 'r')
+		{
+			char ungzip_cmd[1000];
+			sprintf(ungzip_cmd, "gzip -cd %s", fp);
+#ifdef _WIN32
+			f = _popen(ungzip_cmd, "r");
+#else 
+			f = popen(ungzip_cmd, "r");
+#endif
+		}
+		else if (mode[0] == 'w')
+		{
+			char gzip_cmd[1000];
+			sprintf(gzip_cmd, "gzip - -c -f | tee %s > /dev/null", fp);
+#ifdef _WIN32
+			f = _popen(gzip_cmd, "w");
+#else 
+			f = popen(gzip_cmd, "w");
+#endif
+		}
+		else if (mode[0] == 'a')
+		{
+			char gzip_cmd[1000];
+			sprintf(gzip_cmd, "gzip - -c -f | tee -a %s > /dev/null", fp);
+#ifdef _WIN32
+			f = _popen(gzip_cmd, "w");
+#else 
+			f = popen(gzip_cmd, "w");
+#endif
+		}
+	}
+	else
+	{
+		f = fopen(fp, mode);
+	}
+
+	if (f == NULL)
+	{
+		if (mode[0] == 'r')
 		{
 			printf("Could not open %s for reading.\n", fp);
 			exit(0);
 		}
-		else if(mode[0] == 'w')
+		else if (mode[0] == 'w')
 		{
 			printf("Could not open %s for writing.\n", fp);
 			exit(0);
@@ -504,6 +554,31 @@ FILE* open_f(const char* fp, const char* mode)
 	}
 
 	return(f);
+}
+
+void close_f(FILE* f, const char* fp)
+{
+	if (strcmp(fp, "stdin") == 0)
+	{
+	}
+	else if (strcmp(fp, "stdout") == 0)
+	{
+	}
+	else if (strcmp(fp, "stderr") == 0)
+	{
+	}
+	else if (t_string::ends_with(fp, "gz"))
+	{
+#ifdef _WIN32
+		_pclose(f);
+#else 
+		pclose(f);
+#endif
+	}
+	else
+	{
+		fclose(f);
+	}
 }
 
 int get_n_non_empty_lines(char* fp)

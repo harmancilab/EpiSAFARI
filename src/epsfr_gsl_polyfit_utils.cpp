@@ -351,6 +351,70 @@ vector<double>* brkpt_select_per_vicinity_derivative(double* dx, double* dy, int
 	return(brkpts);
 }
 
+vector<double>* brkpt_select_per_derivative_randomized_brpkts(double* dx, double* dy, int n_data_pts, int max_n_internal_brkpts, t_rng* rng)
+{
+	vector<double*>* derivs = new vector<double*>();
+
+	// Compute the derivative of the signal.
+	for (int i = 1; i < n_data_pts; i++)
+	{
+		double* cur_deriv = new double[3];
+		cur_deriv[0] = (dx[i] + dx[i - 1]) / 2; // Set the midpoint.
+		cur_deriv[1] = fabs((dy[i] - dy[i - 1]) / (dx[i] - dx[i - 1]));
+		cur_deriv[2] = (dy[i] + dy[i - 1]) / 2;
+
+		derivs->push_back(cur_deriv);
+	} // i loop.
+
+	// Randomize the derivatives.
+	vector<double*>* rand_derivs = new vector<double*>();
+	vector<int>* inds = rng->fast_permute_indices(0, derivs->size());
+	for (int i = 0; i < (int)derivs->size(); i++)
+	{
+		rand_derivs->push_back(derivs->at(inds->at(i)));
+	} // i loop.
+	delete inds;
+	delete derivs;
+	derivs = rand_derivs;
+
+	sort(derivs->begin(), derivs->end(), sort_derivs);
+
+	// Set the breakpoints as the points in the middle of regions with top derivatives.
+	vector<double>* brkpts = new vector<double>();
+	for (int i = 0; i < (int)derivs->size(); i++)
+	{
+		brkpts->push_back(derivs->at(i)[0]);
+
+		if (__DUMP_POLYFIT_MESSAGES__)
+		{
+			fprintf(stderr, "Top brkpt @ %d: %.3f\n", i, derivs->at(i)[0]);
+		}
+
+		// Break, if we have n breakpoints.
+		if ((int)brkpts->size() == max_n_internal_brkpts)
+		{
+			break;
+		}
+	} // i loop.
+
+	  // Free memory.
+	for (int i = 0; i < (int)derivs->size(); i++)
+	{
+		delete[] derivs->at(i);
+	} // i loop.
+	delete derivs;
+
+	// Set the brkpt's at those locations.
+	sort(brkpts->begin(), brkpts->end());
+
+	if ((int)brkpts->size() != max_n_internal_brkpts)
+	{
+		fprintf(stderr, "Too few breakpoints: %d, %d\n", (int)brkpts->size(), max_n_internal_brkpts);
+		exit(0);
+	}
+
+	return(brkpts);
+}
 
 vector<double>* brkpt_select_per_derivative(double* dx, double* dy, int n_data_pts, int max_n_internal_brkpts)
 {
@@ -386,6 +450,13 @@ vector<double>* brkpt_select_per_derivative(double* dx, double* dy, int n_data_p
 			break;
 		}
 	} // i loop.
+
+	// Free memory.
+	for (int i = 0; i < (int)derivs->size(); i++)
+	{
+		delete[] derivs->at(i);
+	} // i loop.
+	delete derivs;
 
 	// Set the brkpt's at those locations.
 	sort(brkpts->begin(), brkpts->end());
@@ -441,7 +512,7 @@ bool bsplinefit_nonuniform_per_breakpoint_type(int n_data_pts,
 	else if (breakpoint_type == RANDOM_NU_BREAKPOINTS)
 	{
 		internal_brkpts = brkpt_select_random(rng, dx, dy, n_data_pts, max_n_internal_breakpoints);
-	}	
+	}
 	//else if (breakpoint_type == PER_WINDOW_MAXIMA_BREAKPOINTS)
 	//{
 	//	internal_brkpts = brkpt_select_per_window_extrema(dx, dy, n_data_pts, max_n_internal_breakpoints);
@@ -453,6 +524,16 @@ bool bsplinefit_nonuniform_per_breakpoint_type(int n_data_pts,
 	else if (breakpoint_type == HILL_DERIVATIVE_NU_BREAKPOINTS)
 	{
 		internal_brkpts = brkpt_select_per_hill_derivative(dx, dy, n_data_pts, max_n_internal_breakpoints);
+	}
+
+	if (__DUMP_POLYFIT_MESSAGES__)
+	{
+		FILE* f_brkpt = open_f("breakpoints.txt", "a");
+		for (int i = 0; i < (int)internal_brkpts->size(); i++)
+		{
+			fprintf(stderr, "Top brkpt @ %d: %.3f\n", i, internal_brkpts->at(i));
+		} // i loop.
+		fclose(f_brkpt);
 	}
 
 	int n_breakpoints = (int)internal_brkpts->size() + 2; // Add the end points.
@@ -479,21 +560,21 @@ bool bsplinefit_nonuniform_per_breakpoint_type(int n_data_pts,
 	gsl_matrix *X, *cov;
 	gsl_multifit_linear_workspace *mw;
 	double chisq;
+	gsl_vector* breakpoints;
 	//double Rsq, dof, tss;
 
 	//gsl_rng_env_setup();
 	//r = gsl_rng_alloc(gsl_rng_default);
 
-	/* allocate a cubic bspline workspace (k = 4) */
+	/* allocate a bspline workspace */
 	bw = gsl_bspline_alloc(spline_order, nbreak);
 	B = gsl_vector_alloc(ncoeffs);
 
 	x = gsl_vector_alloc(n_data_pts);
 	y = gsl_vector_alloc(n_data_pts);
 	X = gsl_matrix_alloc(n_data_pts, ncoeffs);
-	gsl_vector* breakpoints = gsl_vector_alloc(n_breakpoints);
+	breakpoints = gsl_vector_alloc(n_breakpoints);
 	c = gsl_vector_alloc(ncoeffs);
-	//w = gsl_vector_alloc(n_data_pts);
 	cov = gsl_matrix_alloc(ncoeffs, ncoeffs);
 	mw = gsl_multifit_linear_alloc(n_data_pts, ncoeffs);
 
@@ -633,14 +714,13 @@ bool bsplinefit_nonuniform_per_breakpoint_type(int n_data_pts,
 		}
 	}
 
-	//gsl_rng_free(r);
 	gsl_bspline_free(bw);
 	gsl_vector_free(B);
 	gsl_vector_free(x);
 	gsl_vector_free(y);
+	gsl_vector_free(breakpoints);
 	gsl_matrix_free(X);
 	gsl_vector_free(c);
-	//gsl_vector_free(w);
 	gsl_matrix_free(cov);
 	gsl_multifit_linear_free(mw);
 

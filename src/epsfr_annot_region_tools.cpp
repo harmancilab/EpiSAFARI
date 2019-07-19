@@ -1700,6 +1700,11 @@ bool sort_regions_per_decreasing_length(t_annot_region* region1, t_annot_region*
 	return((region1->end - region1->start) > (region2->end - region2->start));
 }
 
+bool sort_regions_per_dbl_score_decreasing(t_annot_region* region1, t_annot_region* region2)
+{
+	return(region1->dbl_score < region2->dbl_score);
+}
+
 bool sort_regions_per_dbl_score(t_annot_region* region1, t_annot_region* region2)
 {
 	return(region1->dbl_score < region2->dbl_score);

@@ -13,6 +13,7 @@
 #include "epsfr_rng.h"
 #include "epsfr_seed_manager.h"
 #include "epsfr_genomics_coords.h"
+#include "epsfr_ansi_cli.h"
 
 #include <time.h>
 #include <ctype.h>
@@ -33,27 +34,149 @@ Input Data Processing:\n\
 		-preprocess_FASTA [Directory with fasta files] [Sequence extension (e.g., fasta, fa)] [Output directory]\n\
 	B-spline Processing:\n\
 		-save_basis_splines [Number of breakpoints including ends] [Spline Degree]\n\
-Signal Feature Detection:\n\
-	-bspline_encode [bedGraph/processed reads directory path] [# Spline Coefficients] [Spline Order (>=2)] [Breakpoints type (Uniform=0;Derivative=1;Vicinity_Derivative=2;Random=3)] [Max max error] [Max avg error] [window length] [Sparse data flag (0/1)] [Post Median Filter Length]\n\
-	-get_significant_extrema [Encoded signals data directory path] \
-[Maximum signal at trough] [Minimum signal at summit] \
-[Minimum summit2trough ratio per trough] [Minimum summit2trough distance in bps] [Maximum summit2trough distance in bps] \
-[Multi-mappability profile directory] [Maximum multimapp signal at trough] [Genome sequence directory] [Q-val threshold] [Sparse data flag (0/1)] [P-value type: 0: Binomial (Mult.), 1: Binomial (Merge), 2: Multinomial]\n\
-	-merge_valleys [Valleys BED file path] [Minimum-2-minimum distance for merging] [Output file path]\n\
+Valley Detection:\n\
+	-bspline_encode [Options] [Values]\n\
+	-get_valleys [Options] [Values]\n\
 	-assign_valleys_2_regions [Regions BED file path] [Valleys BED file path]\n\
-Feature Annotation:\n\
-	-annotate_features [Valleys BED file path] [GFF file path] [Half promoter length] [Output file path]\n",argv[0]);
+Differential Valley Analysis:\n\
+	-get_2_sample_differential_valleys [Sample 1 valleys BED file path] [Sample 1 directory] [Sample 2 valleys BED file path] [Sample 2 directory] [Sparse data flag (0/1)] [P-value type: 0: Binomial (Mult.), 1: Binomial (Merge), 2: Multinomial]\n\
+Valley Annotation:\n\
+	-annotate_features [Valleys BED file path] [GFF file path] [Half promoter length] [Output file path]\n\
+Signal Matrix Processing:\n\
+	-append_signal_2_regions [Signals directory] [Fragment length] [BED file path] [Output file path]\n\
+	-quantile_normalize_matrix [Signal matrix file path] [Output file path]\n\
+Dip Normalization:\n\
+	-uniformize_dip_relative_window_positions [Valleys BED file path] [Window length] [# bins] [Output file path]\n\
+Profile Simulation:\n\
+	-random_copy_profile_valleys [Signal file path] [Regions BED file path] [Random profile length] [Output profile file path]\n", argv[0]);
 }
 
 int main(int argc, char* argv[])
 {
 	clock_t start_c = clock();
 
-	if (argc < 3)
+	if (argc < 2)
 	{
 		print_usage(argv);
 		exit(0);
 	}
+
+	if (t_string::compare_strings(argv[1], "-random_copy_profile_valleys"))
+	{
+		if (argc < 6)
+		{
+			fprintf(stderr, "USAGE: %s -random_copy_profile_valleys [Signal file path] [Regions BED file path] [Random profile length] [Output signal file path]\n", argv[0]);
+			exit(0);
+		}
+
+		char* signal_fp = argv[2];
+		char* regs_BED_fp = argv[3];
+		int l_sim_profile = atoi(argv[4]);
+		char* op_fp = argv[5];
+
+		int l_profile = 0;
+		int l_frag = 200;
+		bool reads_loaded = false;
+		double* signal_profile = load_signal_covg_per_signal_file(signal_fp,
+																l_frag,
+																l_profile,
+																reads_loaded);
+		fprintf(stderr, "Loaded %d nucleotide profile.\n", l_profile);
+
+		// Load the valley regions.
+		vector<t_annot_region*>* valley_regs = load_BED_with_line_information(regs_BED_fp);
+		fprintf(stderr, "Assigning dips to valley regions.\n");
+		for (int i_reg = 0; i_reg < (int)valley_regs->size(); i_reg++)
+		{
+			char* cur_reg_line = (char*)(valley_regs->at(i_reg)->data);
+			int cur_valley_dip_posn = 0;
+			if (sscanf(cur_reg_line, "%*s %*s %*s %d", &cur_valley_dip_posn) != 1)
+			{
+				fprintf(stderr, "Could not read the dip position from %s\n", cur_reg_line);
+				exit(0);
+			}
+
+			valley_regs->at(i_reg)->score = cur_valley_dip_posn;
+		} // i_reg loop.
+		
+		fprintf(stderr, "Generating simulated profile of length %d base pairs using %d valley regions.\n", l_sim_profile, (int)valley_regs->size());
+
+		double* simulated_profile = new double[l_sim_profile + 10];
+		memset(simulated_profile, 0, sizeof(double) * (l_sim_profile + 2));
+
+		t_rng* rng = new t_rng(t_seed_manager::seed_me());
+		fprintf(stderr, "Shuffling positions.\n");
+		vector<int>* sim_profile_reg_posn_indices = rng->fast_permute_indices(1, l_sim_profile);
+		fprintf(stderr, "Shuffled positions:\n");
+		for (int i = 0; i < 10; i++)
+		{
+			fprintf(stderr, "%d ", sim_profile_reg_posn_indices->at(i));
+		} // i loop.
+		fprintf(stderr, "...\n");
+
+		FILE* f_simulated_dips = open_f("simulated_dips.bed", "w");
+		int simulated_posn_i = 0;
+		for (int i_reg = 0; i_reg < (int)valley_regs->size(); i_reg++)
+		{
+			fprintf(stderr, "Adding %d. region.           \r", i_reg);
+
+			// Copy the signal from profile to simulated profile.
+			bool position_available = false;
+
+			while (!position_available)
+			{
+				int cur_reg_sim_start = sim_profile_reg_posn_indices->at(simulated_posn_i);
+				int cur_reg_sim_end = sim_profile_reg_posn_indices->at(simulated_posn_i) + valley_regs->at(i_reg)->end - valley_regs->at(i_reg)->start + 1;
+
+				// Save the dip's location.
+				int cur_valley_sim_dip = valley_regs->at(i_reg)->score - valley_regs->at(i_reg)->start + cur_reg_sim_start;
+
+				// Check if this position is available.
+				position_available = true;
+				for (int i = cur_reg_sim_start; i < cur_reg_sim_end; i++)
+				{
+					if (simulated_profile[i] > 0)
+					{
+						position_available = false;
+						break;
+					}
+				} // i loop.
+
+				if (position_available)
+				{
+					fprintf(f_simulated_dips, "1\t%d\t%d\t%s\n", cur_valley_sim_dip - 100, cur_valley_sim_dip + 100, (char*)(valley_regs->at(i_reg)->data));
+
+					for (int i = cur_reg_sim_start; i < cur_reg_sim_end; i++)
+					{
+						simulated_profile[i] = signal_profile[i - cur_reg_sim_start + valley_regs->at(i_reg)->start];
+					} // i loop.
+					
+					break;
+				}
+
+				// Push the simulated position forward and move to next region/same region.
+				simulated_posn_i++;
+			} // position_available check.
+		} // i loop.
+		fclose(f_simulated_dips);
+
+		// Save.
+		dump_per_nucleotide_binary_profile(simulated_profile, l_sim_profile, op_fp);
+	} // -random_copy_profile_regions
+	else if (t_string::compare_strings(argv[1], "-uniformize_dip_relative_window_positions"))
+	{
+		if (argc < 5)
+		{
+			fprintf(stderr, "usage: %s -uniformize_dip_relative_window_positions [Valleys BED file path] [Window length] [# bins] [Output file path]\n", argv[0]);
+		}
+
+		char* valleys_BED_fp = argv[2];
+		int l_win = atoi(argv[3]);
+		int n_bins_per_win = atoi(argv[4]);
+		char* op_fp = argv[5];
+
+		uniformize_dip_relative_window_positions(valleys_BED_fp, l_win, n_bins_per_win, op_fp);
+	} // -uniformize_dip_relative_window_positions option.
 
 	if (strcmp(argv[1], "-help") == 0 ||
 		strcmp(argv[1], "-version") == 0 ||
@@ -63,6 +186,59 @@ int main(int argc, char* argv[])
 		print_usage(argv);
 		exit(0);
 	}
+	else if (strcmp(argv[1], "-quantile_normalize_matrix") == 0)
+	{
+		if (argc != 4)
+		{
+			fprintf(stderr, "%s -quantile_normalize_matrix [Signal matrix file path] [Output file path]\n", argv[0]);
+			exit(0);
+		}
+
+		char* signal_regions_BED_fp = argv[2];
+		char* op_fp = argv[3];
+		quantile_normalize_signal_matrix(signal_regions_BED_fp, op_fp);
+	} // -quantile_normalize_matrix option.
+	else if (strcmp(argv[1], "-get_2_sample_differential_valleys") == 0)
+	{
+		if (argc != 8)
+		{
+			fprintf(stderr, "%s -get_2_sample_differential_valleys [Sample 1 valleys BED file path] [Sample 1 directory] [Sample 2 valleys BED file path] [Sample 2 directory] [Sparse data flag (0/1)] [P-value type: 0: Binomial (Mult.), 1: Binomial (Merge), 2: Multinomial]\n", argv[0]);
+			exit(0);
+		}
+
+		char* sample1_valleys_bed_fp = argv[2];
+		char* sample1_dir = argv[3];
+		char* sample2_valleys_bed_fp = argv[4];
+		char* sample2_dir = argv[5];
+		bool sparse_valleys = (argv[6][0] == '1');
+		char p_val_type = atoi(argv[7]);
+
+		// set the extrema statistics to be used in computing significance.
+		t_extrema_statistic_defition* extrema_statistic_defn = new t_extrema_statistic_defition();
+		extrema_statistic_defn->max_signal_at_trough = -1;
+		extrema_statistic_defn->min_signal_at_summit = -1;
+		extrema_statistic_defn->min_summit2trough_ratio_per_trough = -1;
+		extrema_statistic_defn->min_summit2trough_dist_in_bp = -1;
+		extrema_statistic_defn->max_summit2trough_dist_in_bp = -1;
+		extrema_statistic_defn->max_multimapp_signal_at_trough = -1;
+		extrema_statistic_defn->log_q_val_threshold = -1;
+		extrema_statistic_defn->p_val_estimate_extrema_vic_window_length = 50;
+		extrema_statistic_defn->p_val_estimate_signal_scaling_factor = 1.0;
+		extrema_statistic_defn->sparse_profile = sparse_valleys;
+		extrema_statistic_defn->l_minima_vicinity_per_merging = 100;
+		extrema_statistic_defn->p_val_type = p_val_type;
+
+		//extrema_statistic_defn->hill_score_type = HEIGHT_BASED_HILL_SCORE;
+		//extrema_statistic_defn->hill_score_type = DIST_BASED_HILL_SCORE;
+		extrema_statistic_defn->hill_score_type = -1;
+
+		if (sparse_valleys)
+		{
+			extrema_statistic_defn->p_val_estimate_signal_scaling_factor = 100;
+		}
+
+		get_2_sample_differential_valleys(sample1_valleys_bed_fp, sample1_dir, sample2_valleys_bed_fp, sample2_dir, extrema_statistic_defn);
+	} // -get_2_sample_differential_valleys option.
 	else if (strcmp(argv[1], "-save_basis_splines") == 0)
 	{
 		if (argc != 5)
@@ -278,15 +454,7 @@ int main(int argc, char* argv[])
 			char cur_chr_reads_fp[1000];
 			sprintf(cur_chr_reads_fp, "%s/%s_mapped_reads.txt.gz", preprocessed_reads_dir, chr_ids->at(i_chr));
 
-			char ungzip_cmd[1000];
-			sprintf(ungzip_cmd, "gzip -cd %s", cur_chr_reads_fp);
-
-			FILE* f_cur_chr_reads = NULL;
-#ifdef _WIN32
-			f_cur_chr_reads = _popen(ungzip_cmd, "r");
-#else 
-			f_cur_chr_reads = popen(ungzip_cmd, "r");
-#endif
+			FILE* f_cur_chr_reads = open_f(cur_chr_reads_fp, "r");
 
 			// Load the entries, store them in a buffer.
 			vector<FILE*>* bucket_f_list = new vector<FILE*>();
@@ -348,11 +516,7 @@ int main(int argc, char* argv[])
 				delete[] cur_line;
 			} // file reading loop.
 
-#ifdef _WIN32
-			_pclose(f_cur_chr_reads);
-#else 
-			pclose(f_cur_chr_reads);
-#endif
+			close_f(f_cur_chr_reads, cur_chr_reads_fp);
 
 			for (int i_st = 0; i_st < (int)bucket_f_list->size(); i_st++)
 			{
@@ -361,7 +525,7 @@ int main(int argc, char* argv[])
 			delete(bucket_f_list);
 
 			char cur_chr_sorted_reads_fp[1000];
-			sprintf(cur_chr_sorted_reads_fp, "%s/%s_mapped_reads.txt", sorted_reads_op_dir, chr_ids->at(i_chr));
+			sprintf(cur_chr_sorted_reads_fp, "%s/%s_mapped_reads.txt.gz", sorted_reads_op_dir, chr_ids->at(i_chr));
 			FILE* f_cur_chr_sorted_reads = open_f(cur_chr_sorted_reads_fp, "w");
 			sort(bucket_starts->begin(), bucket_starts->end());
 			for (int i_buck = 0; i_buck < (int)bucket_starts->size(); i_buck++)
@@ -386,13 +550,7 @@ int main(int argc, char* argv[])
 
 				delete cur_sorted_bucket_read_lines;
 			} // i_buck loop.
-			fclose(f_cur_chr_sorted_reads);
-
-			char comp_cur_chr_sorted_reads_fp[1000];
-			sprintf(comp_cur_chr_sorted_reads_fp, "%s.gz", cur_chr_sorted_reads_fp);
-			fprintf(stderr, "Compressing to %s.\n", comp_cur_chr_sorted_reads_fp);
-			compressFile(cur_chr_sorted_reads_fp, comp_cur_chr_sorted_reads_fp);
-			delete_file(cur_chr_sorted_reads_fp);
+			close_f(f_cur_chr_sorted_reads, cur_chr_sorted_reads_fp);
 
 			delete bucket_starts;
 			delete bucket_sizes;
@@ -434,19 +592,10 @@ int main(int argc, char* argv[])
 			fprintf(stderr, "Pruning %s\n", chr_ids->at(i_chr));
 			char cur_chr_reads_fp[1000];
 			sprintf(cur_chr_reads_fp, "%s/%s_mapped_reads.txt.gz", sorted_preprocessed_reads_dir, chr_ids->at(i_chr));
-
-			char ungzip_cmd[1000];
-			sprintf(ungzip_cmd, "gzip -cd %s", cur_chr_reads_fp);
-
-			FILE* f_cur_chr_reads = NULL;
-#ifdef _WIN32
-			f_cur_chr_reads = _popen(ungzip_cmd, "r");
-#else 
-			f_cur_chr_reads = popen(ungzip_cmd, "r");
-#endif
+			FILE* f_cur_chr_reads = open_f(cur_chr_reads_fp, "r");
 
 			char cur_chr_pruned_reads_fp[1000];
-			sprintf(cur_chr_pruned_reads_fp, "%s/%s_mapped_reads.txt", pruned_reads_dir, chr_ids->at(i_chr));
+			sprintf(cur_chr_pruned_reads_fp, "%s/%s_mapped_reads.txt.gz", pruned_reads_dir, chr_ids->at(i_chr));
 			FILE* f_cur_chr_pruned_reads = open_f(cur_chr_pruned_reads_fp, "w");
 
 			int n_processed_reads = 0;
@@ -499,21 +648,10 @@ int main(int argc, char* argv[])
 				delete[] cur_line;
 			} // file reading loop.
 
-#ifdef _WIN32
-			_pclose(f_cur_chr_reads);
-#else 
-			pclose(f_cur_chr_reads);
-#endif
-
-			fclose(f_cur_chr_pruned_reads);
+			close_f(f_cur_chr_reads, cur_chr_reads_fp);
+			close_f(f_cur_chr_pruned_reads, cur_chr_pruned_reads_fp);
 
 			fprintf(stderr, "Processed %d reads, pruned to %d reads.\n", n_processed_reads, n_pruned_reads);
-			
-			char comp_cur_chr_pruned_reads_fp[1000];
-			sprintf(comp_cur_chr_pruned_reads_fp, "%s.gz", cur_chr_pruned_reads_fp);
-			fprintf(stderr, "Compressing to %s.\n", comp_cur_chr_pruned_reads_fp);
-			compressFile(cur_chr_pruned_reads_fp, comp_cur_chr_pruned_reads_fp);
-			delete_file(cur_chr_pruned_reads_fp);
 		} // i_chr loop.
 	} // -remove_duplicates
 	else if (strcmp(argv[1], "-separate_bedGraph_2_chromosomes") == 0)
@@ -529,29 +667,11 @@ int main(int argc, char* argv[])
 
 		vector<char*>* chr_ids = new vector<char*>();
 		vector<FILE*>* f_bgr_op_list = new vector<FILE*>();
+		vector<char*>* bgr_op_list_fps = new vector<char*>();
 
 		fprintf(stderr, "Separating %s with respect to chromosomes and saving to %s.\n", bedgraph_fp, op_dir);
 
-		FILE* f_bgr = NULL;
-
-		if (t_string::compare_strings(bedgraph_fp, "stdin"))
-		{
-			f_bgr = stdin;
-		}
-		else if (t_string::ends_with(bedgraph_fp, "bgr") || t_string::ends_with(bedgraph_fp, "bedgraph"))
-		{
-			f_bgr = open_f(bedgraph_fp, "r");
-		}
-		else if (t_string::ends_with(bedgraph_fp, "bgr.gz") || t_string::ends_with(bedgraph_fp, "bedgraph.gzip"))
-		{
-			char ungzip_cmd[1000];
-			sprintf(ungzip_cmd, "gzip -cd %s", bedgraph_fp);
-#ifdef _WIN32
-			f_bgr = _popen(ungzip_cmd, "r");
-#else 
-			f_bgr = popen(ungzip_cmd, "r");
-#endif	
-		}
+		FILE* f_bgr = open_f(bedgraph_fp, "r");
 
 		while (1)
 		{
@@ -575,7 +695,7 @@ int main(int argc, char* argv[])
 				fprintf(stderr, "Adding %s\n", copy_chr_id);
 
 				char bgr_op_fp[1000];
-				sprintf(bgr_op_fp, "%s/%s.bgr", op_dir, copy_chr_id);
+				sprintf(bgr_op_fp, "%s/%s.bgr.gz", op_dir, copy_chr_id);
 
 				if (check_file(bgr_op_fp))
 				{
@@ -584,6 +704,7 @@ int main(int argc, char* argv[])
 
 				FILE* cur_f_bgr_op = open_f(bgr_op_fp, "a");
 				f_bgr_op_list->push_back(cur_f_bgr_op);
+				bgr_op_list_fps->push_back(bgr_op_fp);
 			} // new chromosome check.
 
 			// Write the current line.
@@ -600,22 +721,8 @@ int main(int argc, char* argv[])
 			delete[] cur_line;
 		} // file reading loop.
 
-		if (t_string::compare_strings(bedgraph_fp, "stdin"))
-		{
-			
-		}
-		else if (t_string::ends_with(bedgraph_fp, "bgr") || t_string::ends_with(bedgraph_fp, "bedgraph"))
-		{
-			fclose(f_bgr);
-		}
-		else if (t_string::ends_with(bedgraph_fp, "bgr.gz") || t_string::ends_with(bedgraph_fp, "bedgraph.gzip"))
-		{
-#ifdef _WIN32
-			_pclose(f_bgr);
-#else 
-			pclose(f_bgr);
-#endif	
-		}
+		// Close file.
+		close_f(f_bgr, bedgraph_fp);
 
 		if (f_bgr_op_list->size() != chr_ids->size())
 		{
@@ -630,7 +737,7 @@ int main(int argc, char* argv[])
 		for (int i_chr = 0; i_chr < (int)f_bgr_op_list->size(); i_chr++)
 		{
 			fprintf(f_chr_ids_list, "%s\n", chr_ids->at(i_chr));
-			fclose(f_bgr_op_list->at(i_chr));
+			close_f(f_bgr_op_list->at(i_chr), bgr_op_list_fps->at(i_chr));
 		} // i_chr loop.
 		fclose(f_chr_ids_list);
 	} // -separate_bedGraph_2_chromosomes option.
@@ -692,29 +799,78 @@ int main(int argc, char* argv[])
 			exit(0);
 		}
 	} // -preprocess option.
-	if (t_string::compare_strings(argv[1], "-get_significant_extrema"))
+	if (t_string::compare_strings(argv[1], "-get_valleys"))
 	{
-		if (argc != 14)
+		if (argc < 3)
 		{
-			fprintf(stderr, "USAGE: %s -get_significant_extrema [Encoded signals data directory path] \
-[Maximum signal at trough] [Minimum signal at summit] \
-[Minimum summit2trough ratio per trough] [Minimum summit2trough distance in bps] [Maximum summit2trough distance in bps] \
-[Multi-mappability profile directory] [Maximum multimapp signal at trough] [Genome sequence directory] [Q-val threshold] [Sparse data flag (0/1)] [P-value type: 0: Binomial (Mult.), 1: Binomial (Merge), 2: Multinomial]\n", argv[0]);
+			fprintf(stderr, "USAGE: %s -get_valleys [Options] [Values]\n\
+	-signal_dir [Encoded signals data directory path]\n\
+	-mmap_dir [Multi-mappability profile directory]\n\
+	-genome_dir [Genome sequence directory]\n\
+	-max_signal_at_trough [Maximum signal at trough]\n\
+	-min_signal_at_summit [Minimum signal at summit]\n\
+	-f_min [Minimum summit2trough ratio per trough]\n\
+	-l_min [Minimum summit2trough distance in bps]\n\
+	-l_max [Maximum summit2trough distance in bps]\n\
+	-max_mmap [Maximum multimapp signal at trough]\n\
+	-max_qval [Q-val threshold]\n\
+	-sparse_profile [Sparse data flag (0/1)]\n\
+	-pval_type [P-value type: 0: Binomial (Mult.), 1: Binomial (Merge), 2: Multinomial]\n\
+	-l_p [P-value estimation window length]\n", argv[0]);
 			exit(0);
 		}
 
-		char* signal_data_dir = argv[2];
-		double max_signal_at_trough = atof(argv[3]);
-		double min_signal_at_summit = atof(argv[4]);
-		double min_summit2trough_ratio_per_trough = atof(argv[5]);
-		int min_summit2trough_dist_in_bp = atoi(argv[6]);
-		int max_summit2trough_dist_in_bp = atoi(argv[7]);
-		char* multi_mapp_signal_profile_dir = argv[8];
-		double max_multimapp_signal_at_trough = atof(argv[9]);
-		char* genome_seq_dir = argv[10];
-		double log_q_val_threshold = log(atof(argv[11]));
-		bool sparse_valleys = (argv[12][0] == '1');
-		char p_val_type = atoi(argv[13]);
+		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
+
+		bool success = false;
+
+		char* signal_data_dir = cli->get_value_by_option("-signal_dir", success);if (!success) { fprintf(stderr, "Could not read signal data directory.\n");exit(0); }
+		char* multi_mapp_signal_profile_dir = cli->get_value_by_option("-mmapp_dir", success);if (!success) { fprintf(stderr, "Could not read multimapp directory.\n");exit(0); }
+		char* genome_seq_dir = cli->get_value_by_option("-genome_dir", success);if (!success) { fprintf(stderr, "Could not read genome sequence directory.\n");exit(0); }
+
+		double max_signal_at_trough = atof_null(cli->get_value_by_option("-max_signal_at_trough", success));if (!success) { max_signal_at_trough = 10000; }
+		double min_signal_at_summit = atof_null(cli->get_value_by_option("-min_signal_at_summit", success));if (!success) { min_signal_at_summit = 5; }
+		double min_summit2trough_ratio_per_trough = atof_null(cli->get_value_by_option("-f_min", success));if (!success) { min_summit2trough_ratio_per_trough = 1.2; }
+		int min_summit2trough_dist_in_bp = atoi_null(cli->get_value_by_option("-l_min", success));if (!success) { min_summit2trough_dist_in_bp = 0; }
+		int max_summit2trough_dist_in_bp = atoi_null(cli->get_value_by_option("-l_max", success));if (!success) { max_summit2trough_dist_in_bp = 1000; }
+		double max_multimapp_signal_at_trough = atof_null(cli->get_value_by_option("-max_mmap", success));if (!success) { max_multimapp_signal_at_trough = 1.2; }
+		double log_q_val_threshold = log(atof_null(cli->get_value_by_option("-max_qval", success)));if (!success) { log_q_val_threshold = 0.01; }
+
+		int l_p = atoi_null(cli->get_value_by_option("-l_p", success));if (!success) { l_p = 50; }
+		
+		bool sparse_valleys = false;
+		if (!cli->get_value_by_option("-sparse_profile", success)) { sparse_valleys = false; }
+		else { sparse_valleys = (cli->get_value_by_option("-sparse_profile", success)[0] == '1'); }
+
+		char p_val_type = atoi(cli->get_value_by_option("-pval_type", success));if (!success) { p_val_type = 0; }
+
+		fprintf(stderr, "Parameters:\n\
+signal_data_dir=%s\n\
+max_signal_at_trough=%.3f\n\
+min_signal_at_summit=%.3f\n\
+min_summit2trough_ratio_per_trough=%.3f\n\
+min_summit2trough_dist_in_bp=%d\n\
+max_summit2trough_dist_in_bp=%d\n\
+multi_mapp_signal_profile_dir=%s\n\
+max_multimapp_signal_at_trough=%.3f\n\
+genome_seq_dir=%s\n\
+log_q_val_threshold=%.3f\n\
+sparse_valleys=%d\n\
+p_val_type=%d\n\
+l_p=%d\n",
+			signal_data_dir,
+			max_signal_at_trough,
+			min_signal_at_summit,
+			min_summit2trough_ratio_per_trough,
+			min_summit2trough_dist_in_bp,
+			max_summit2trough_dist_in_bp,
+			multi_mapp_signal_profile_dir,
+			max_multimapp_signal_at_trough,
+			genome_seq_dir,
+			log_q_val_threshold,
+			sparse_valleys,
+			p_val_type,
+			l_p);
 
 		char chr_ids_list_fp[1000];
 		sprintf(chr_ids_list_fp, "%s/chr_ids.txt", signal_data_dir);
@@ -734,7 +890,7 @@ int main(int argc, char* argv[])
 		extrema_statistic_defn->max_summit2trough_dist_in_bp = max_summit2trough_dist_in_bp;
 		extrema_statistic_defn->max_multimapp_signal_at_trough = max_multimapp_signal_at_trough;
 		extrema_statistic_defn->log_q_val_threshold = log_q_val_threshold;
-		extrema_statistic_defn->p_val_estimate_extrema_vic_window_length = 50;
+		extrema_statistic_defn->p_val_estimate_extrema_vic_window_length = l_p;
 		extrema_statistic_defn->p_val_estimate_signal_scaling_factor = 1.0;
 		extrema_statistic_defn->sparse_profile = sparse_valleys;
 		extrema_statistic_defn->l_minima_vicinity_per_merging = 100;
@@ -777,15 +933,25 @@ int main(int argc, char* argv[])
 				fprintf(stderr, "Using multinomial distribution for assessing significance.\n");
 			}
 
+			// Load smoothed signal.
+			int l_profile = 0;
+			double* signal_profile = NULL;
 			char bin_signal_fp[1000];
 			sprintf(bin_signal_fp, "%s/spline_coded_%s.bin.gz", signal_data_dir, chr_id);
-
-			int l_profile = 0;
-			double* signal_profile = load_per_nucleotide_binary_profile(bin_signal_fp, l_profile);
-			fprintf(stderr, "Loaded %d long signal profile.\n", l_profile);
+			if (check_file(bin_signal_fp))
+			{
+				signal_profile = load_per_nucleotide_binary_profile(bin_signal_fp, l_profile);
+				fprintf(stderr, "Loaded %d long signal profile.\n", l_profile);
+			}
+			else
+			{
+				fprintf(stderr, "Could not load smoothed signal from %s.\n", bin_signal_fp);
+				exit(0);
+			}						
 			
+			// Load multimapp signal.
 			int l_multimapp_profile = 0;
-			double* multi_mapp_signal = NULL;
+			unsigned char* multi_mapp_signal = NULL;
 			char multi_mapp_signal_profile_fp[1000];
 			sprintf(multi_mapp_signal_profile_fp, "%s/%s.bin", multi_mapp_signal_profile_dir, chr_id);
 			if (check_file(multi_mapp_signal_profile_fp))
@@ -795,15 +961,16 @@ int main(int argc, char* argv[])
 			}
 			else
 			{
-				fprintf(stderr, "Could not find multimapp file @ %s.\n", multi_mapp_signal_profile_fp);
-				exit(0);
+				fprintf(stderr, "Could not find multimapp file @ %s, skipping.\n", multi_mapp_signal_profile_fp);
+				delete[] signal_profile;
+				continue;
 			}
 
+			// Load genome sequence.			
 			int l_chrom_seq = 0;
-			char bin_seq_fp[1000];
-			sprintf(bin_seq_fp, "%s/%s.bin", genome_seq_dir, chr_ids->at(i_chr));
-
 			char* chrom_seq = NULL;
+			char bin_seq_fp[1000];
+			sprintf(bin_seq_fp, "%s/%s.bin", genome_seq_dir, chr_ids->at(i_chr));			
 			if (check_file(bin_seq_fp))
 			{
 				chrom_seq = load_binary_sequence_file(bin_seq_fp, l_chrom_seq);
@@ -812,7 +979,9 @@ int main(int argc, char* argv[])
 			else
 			{
 				fprintf(stderr, "Could not load genome sequence @ %s.\n", bin_seq_fp);
-				exit(0);
+				delete[] signal_profile;
+				delete[] multi_mapp_signal;
+				continue;
 			}
 
 			vector<t_annot_region*>* cur_chr_valleys = get_significant_extrema_per_signal_profile(signal_data_dir, chr_id, signal_profile, l_profile,
@@ -834,6 +1003,12 @@ int main(int argc, char* argv[])
 			}
 		} // i_chr loop.
 
+		if (all_significant_valleys->size() == 0)
+		{
+			fprintf(stderr, "No valleys found.\n");
+			exit(0);
+		}
+
 		// Estimate FDR.
 		get_benjamini_hochberg_corrected_p_values_per_valleys(all_significant_valleys);
 
@@ -853,7 +1028,7 @@ int main(int argc, char* argv[])
 		fprintf(stderr, "Detected %d significant valleys, saving.\n", (int)filtered_all_significant_valleys->size());
 
 		char op_fp[1000];
-		sprintf(op_fp, "%s/significant_valleys.bed", signal_data_dir);
+		sprintf(op_fp, "%s/significant_valleys.bed.gz", signal_data_dir);
 		dump_valleys(filtered_all_significant_valleys, op_fp);
 	} // -get_significant_extrema_per_signal_profile option.
 	else if (t_string::compare_strings(argv[1], "-merge_valleys"))
@@ -867,6 +1042,13 @@ int main(int argc, char* argv[])
 		char* valleys_BED_fp = argv[2];
 		int l_minima_vicinity = atoi(argv[3]);
 		char* op_fp = argv[4];
+
+		if (!check_file(valleys_BED_fp))
+		{
+			fprintf(stderr, "%s does not exist.\n", valleys_BED_fp);
+			exit(0);
+		}
+
 		vector<t_annot_region*>* merged_valleys = merge_overlapping_valleys_per_pval_minimization(valleys_BED_fp, l_minima_vicinity);
 
 		// Read the header.
@@ -888,21 +1070,79 @@ int main(int argc, char* argv[])
 	} // merge_valleys option.
 	else if (t_string::compare_strings(argv[1], "-bspline_encode"))
 	{
-		if (argc != 11)
+		if (argc < 3)
 		{
-			fprintf(stderr, "USAGE: %s -bspline_encode [bedGraph/processed reads directory path] [# Spline Coefficients] [Spline Order (>=2)] [Breakpoints type (Uniform=0;Derivative=1;Vicinity_Derivative=2;Random=3)] [Max max error] [Max avg error] [window length] [Sparse data flag (0/1)] [Post Median Filter Length]\n", argv[0]);
+			//fprintf(stderr, "USAGE: %s -bspline_encode [bedGraph/processed reads directory path] [# Spline Coefficients] [Spline Order (>=2)] [Breakpoints type (Uniform=0;Derivative=1;Vicinity_Derivative=2;Random=3)] [Max max error] [Max avg error] [window length] [Sparse data flag (0/1)] [Post Median Filter Length]\n", argv[0]);
+			fprintf(stderr, "USAGE: %s -bspline_encode [Options] [Arguments]\n\
+	-signal_dir [bedGraph/processed reads directory path]\n\
+	-n_spline_coeff [# Spline Coefficients]\n\
+	-bspline_order [Spline Order (>=2)]\n\
+	-max_max_err [Max max error]\n\
+	-max_avg_err [Max avg error]\n\
+	-l_win [Window length]\n\
+	-l_step_win [Stepping length (<l_win)]\n\
+	-min_pt2pt_distance_in_bps [Distance between consecutive POIs]\n\
+	-l_frag [Fragment length]\n\
+	-sparse_profile [Sparse data flag (0/1)]\n\
+	-brkpts_type [Breakpoints type (Uniform=0;Derivative=1;Vicinity_Derivative=2;Random=3)]\n\
+	-l_post_filt_win [Post Median Filter Length]\n\
+	-target_regs [Target regions BED file path]\n", argv[0]);
+
 			exit(0);
 		}
 
-		char* signal_dir = argv[2];
-		int n_spline_coeff = atoi(argv[3]);
-		int bspline_order = atoi(argv[4]);
-		int brkpts_type_index = atoi(argv[5]);
-		double max_max_err = atof(argv[6]);
-		double max_avg_err = atof(argv[7]);
-		int l_win = atoi(argv[8]);
-		bool sparse_data_flag = (argv[9][0] == '1');
-		int l_med_filt_win = atoi(argv[10]);
+		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
+
+		bool success = false;
+		char* signal_dir = cli->get_value_by_option("-signal_dir", success);
+		//char* target_regs_BED_fp = (cli->get_value_by_option("-target_regs_BED_fp", success));if (!success) { target_regs_BED_fp = NULL; }
+		int n_spline_coeff = atoi_null(cli->get_value_by_option("-n_spline_coeff", success));if (!success) { n_spline_coeff = 10; }
+		int bspline_order = atoi_null(cli->get_value_by_option("-bspline_order", success));if (!success) { bspline_order = 5; }
+		double max_max_err = atof_null(cli->get_value_by_option("-max_max_err", success));if (!success) { max_max_err = 5; }
+		double max_avg_err = atof_null(cli->get_value_by_option("-max_avg_err", success));if (!success) { max_avg_err = 3; }
+		int l_win = atoi_null(cli->get_value_by_option("-l_win", success));if (!success) { l_win = 1000; }
+
+		bool sparse_data_flag = false;
+		if (!cli->get_value_by_option("-sparse_profile", success)) { sparse_data_flag = false; }
+		else { sparse_data_flag = (cli->get_value_by_option("-sparse_profile", success)[0] == '1'); }
+
+		int brkpts_type_index = atoi_null(cli->get_value_by_option("-brkpts_type", success));if (!success) { brkpts_type_index = 0; }
+		int l_med_filt_win = atoi_null(cli->get_value_by_option("-l_post_filt_win", success));if (!success) { l_med_filt_win = 50; }
+		int l_step_win = atoi_null(cli->get_value_by_option("-l_step_win", success));if (!success) { l_step_win = l_win; }
+		int min_pt2pt_distance_in_bps = atoi_null(cli->get_value_by_option("-min_POI_distance", success));if (!success) { min_pt2pt_distance_in_bps = 50; }
+		int l_frag = atoi_null(cli->get_value_by_option("-l_frag", success));if (!success) { l_frag = 200; }
+
+		if (l_step_win > l_win)
+		{
+			fprintf(stderr, "Stepping window length cannot be longer than l_win.\n");
+			l_step_win = l_win;
+		}
+
+		fprintf(stderr, "Parameters:\n\
+signal_dir=%s\n\
+n_spline_coeff=%d\n\
+bspline_order=%d\n\
+brkpts_type_index=%d\n\
+max_max_err=%.3f\n\
+max_avg_err=%.3f\n\
+l_win=%d\n\
+l_frag=%d\n\
+min_pt2pt_distance_in_bps=%d\n\
+sparse_data_flag=%d\n\
+l_step_win=%d\n\
+l_med_filt_win=%d\n",
+			signal_dir,
+			n_spline_coeff,
+			bspline_order,
+			brkpts_type_index,
+			max_max_err,
+			max_avg_err,
+			l_win,
+			l_frag,
+			min_pt2pt_distance_in_bps,
+			sparse_data_flag,
+			l_step_win,
+			l_med_filt_win);
 
 		char brkpts_type = -1;
 		if (brkpts_type_index == 0)
@@ -937,9 +1177,9 @@ int main(int argc, char* argv[])
 			exit(0);
 		}
 
-		int l_frag = 200;
+		//int l_frag = 200;
 		int min_n_pts_2_encode = 2;
-		int min_pt2pt_distance_in_bps = 50;
+		//int min_pt2pt_distance_in_bps = 50;
 
 		double top_err_perc_frac = 0.90;
 
@@ -953,20 +1193,36 @@ int main(int argc, char* argv[])
 			{
 				fprintf(stderr, "Encoding %s\n", chr_ids->at(i_chr));
 			}
-
+			
+			//bspline_encode_mapped_read_profile_expanded_windows(signal_dir, chr_ids->at(i_chr), l_frag,
 			bspline_encode_mapped_read_profile(signal_dir, chr_ids->at(i_chr), l_frag,
 				n_spline_coeff, bspline_order,
 				brkpts_type,
 				min_n_pts_2_encode, min_pt2pt_distance_in_bps,
 				max_max_err, max_avg_err,
-				l_win, sparse_data_flag, top_err_perc_frac, l_med_filt_win);
+				l_win, sparse_data_flag, top_err_perc_frac, l_step_win, l_med_filt_win);
 		} // i_chr loop.
 	} // -bspline_encode_mapped_read_profile option.
+	else if (t_string::compare_strings(argv[1], "-append_signal_2_regions"))
+	{
+		if (argc != 6)
+		{
+			fprintf(stderr, "USAGE: %s -append_signal_2_regions [Signals directory] [Fragment length] [BED file path] [Output file path]\n", argv[0]);
+			exit(0);
+		}
+
+		char* signal_directory = argv[2];
+		int l_frag = atoi(argv[3]);
+		char* bed_fp = argv[4];
+		char* op_fp = argv[5];
+
+		append_signal_2_regions(signal_directory, l_frag, bed_fp, op_fp);
+	} // -append_signal_2_regions option.
 
 	FILE* f_beacon = open_f("timing.log", "a");
 	clock_t end_c = clock();
 	fprintf(f_beacon, "%d\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
-	fprintf(stderr, "EpiSAFARI finished in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+	fprintf(stderr, "EpiSAFARI finished \"%s\" in %d seconds.\n", argv[1], (int)((end_c - start_c) / CLOCKS_PER_SEC));
 	fclose(f_beacon);
 }
 

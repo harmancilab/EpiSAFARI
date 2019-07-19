@@ -115,8 +115,8 @@ public:
 
 	static int get_add_i_str(vector<char*>* strs, char* str);
 	static int get_i_str(vector<char*>* strs, const char* str);
-	static int get_i_str_ci(vector<char*>* strs, char* str);
-	static int get_i_str(vector<t_string*>* strs, char* str);
+	static int get_i_str_ci(vector<char*>* strs, const char* str);
+	static int get_i_str(vector<t_string*>* strs, const char* str);
 
 	static bool starts_with(const char* full_string, const char* sub_str);
 	static bool ends_with(const char* full_string, const char* sub_str);

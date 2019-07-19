@@ -428,7 +428,7 @@ int t_string::get_add_i_str(vector<char*>* strs, char* str)
 	return(i_chr);
 }
 
-int t_string::get_i_str(vector<t_string*>* strs, char* str)
+int t_string::get_i_str(vector<t_string*>* strs, const char* str)
 {
 	for(int i_chr = 0; i_chr < (int)strs->size(); i_chr++)
 	{
@@ -442,7 +442,7 @@ int t_string::get_i_str(vector<t_string*>* strs, char* str)
 	return((int)strs->size());
 }
 
-int t_string::get_i_str_ci(vector<char*>* strs, char* str)
+int t_string::get_i_str_ci(vector<char*>* strs, const char* str)
 {
 	for(int i_chr = 0; i_chr < (int)strs->size(); i_chr++)
 	{
@@ -1420,7 +1420,7 @@ vector<char*>* t_string::copy_tokens_2_strs(t_string_tokens* toks)
 	vector<char*>* strs = new vector<char*>();
 	for (int i_t = 0; i_t < (int)toks->size(); i_t++)
 	{
-		strs->push_back(toks->at(i_t)->str());
+		strs->push_back(t_string::copy_me_str(toks->at(i_t)->str()));
 	} // i_t loop.
 
 	return(strs);

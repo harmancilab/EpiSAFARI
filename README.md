@@ -1,3 +1,4 @@
+
 <html>
 <font face="arial">
 <div style="text-align:center"><img src="episafari_logo.png" alt="Could not load logo." width="800" align="center"></div>
@@ -15,6 +16,8 @@ and outputs:<br>
 - The valleys, local minima and maxima in the signal profile. <br>
 - Gene and transcription factors annotations, mappability values and nucleotide content for the valley.
 </div>
+
+In addition, EpiSAFARI can compare the valleys detected in 2 samples and identify the "differential valleys". This enables comparing 2 samples generated under different conditions.
 <br>
 
 The output is formatted as an extended BED file with multiple columns. Please refer below for the specification of output file format.
@@ -22,9 +25,9 @@ The output is formatted as an extended BED file with multiple columns. Please re
 <h2>Download and Installation</h2>
 You can download EpiSAFARI code by clicking on the green "Clone or Download" button and downloading zip or by checking out via git. After that, navigate to the checkout (or download) directory. If you downloaded the zip file of the source, unzip it using "unzip master.zip".<br><br>
 
-You need to have g++, GSL, and zLib libraries installed for building EpiSAFARI. If they are not installed, type:
+You need to have g++, gzip, and the GSL libraries installed for building EpiSAFARI. These are installed in most Unix distributions but if they are not installed, type:
 ```
-sudo yum -y install gsl gsl-devel gcc-c++ zlib zlib-devel
+sudo yum -y install gsl gsl-devel gcc-c++ gzip
 ```
 
 This should install the necessary GSL libraries for building EpiSAFARI correctly.<br><br>
@@ -79,7 +82,7 @@ This parameter can be changed while data is being smoothed.
 <h3>Hill Score Thresholds</h3>
 EpiSAFARI reports a hill score between 0 and 1 that is used to measure the topological quality of valleys. Hill score of 1 represents a valley that shows monotonically increasing signal while moving from the valley's dip to the summits.<br>
 
-The reported valleys must be filtered with respect to the reported hill scores. We observed that there is very high enrichment of valleys with hill scores close to 1.0. These valleys represent biologically meaningful valleys. Therefore EpiSAFARI uses hill score threshold of 0.99<br>
+The reported valleys must be filtered with respect to the reported hill scores. We observed that there is very high enrichment of valleys with hill scores close to 1.0. These valleys represent biologically meaningful valleys. Therefore EpiSAFARI uses hill score threshold of 0.90<br>
 
 If the hill score threshold is decreased, the valley redundancy increases: The fraction of reported valleys with overlaps increase. Depending on the application, this may be a useful and intended behaviour.<br>
 
@@ -132,15 +135,17 @@ spline_order=5
 max_max_err=5
 max_avg_err=3
 l_win=1000
+l_step_win=1000
 sparse_data=0
-l_post_filter=10
-brkpt_type=0
+l_post_filter=50
+brkpt_type=1
+min_POI_distance_in_bps=50
 
 ## bedGraph files:
-./bin/EpiSAFARI -bspline_encode bedGraphs ${n_spline_coeffs} ${spline_order} ${brkpt_type} ${max_max_err} ${max_avg_err} ${l_win} ${sparse_data} ${l_post_filter}
+./bin/EpiSAFARI -bspline_encode -signal_dir bedGraphs -n_spline_coeff ${n_spline_coeffs} -bspline_order ${spline_order} -max_max_err ${max_max_err} -max_avg_err ${max_avg_err} -l_win ${l_win} -min_POI_distance ${min_POI_distance_in_bps} -sparse_profile ${sparse_data} -brkpts_type ${brkpt_type} -l_step_win ${l_step_win} -l_post_filt_win ${l_post_filter}
 
 ## mapped read files:
-./bin/EpiSAFARI -bspline_encode processed_reads/dedup ${n_spline_coeffs} ${spline_order} ${brkpt_type} ${max_max_err} ${max_avg_err} ${l_win} ${sparse_data} ${l_post_filter}
+./bin/EpiSAFARI -bspline_encode -signal_dir processed_reads/dedup -n_spline_coeff ${n_spline_coeffs} -bspline_order ${spline_order} -max_max_err ${max_max_err} -max_avg_err ${max_avg_err} -l_win ${l_win} -min_POI_distance ${min_POI_distance_in_bps} -sparse_profile ${sparse_data} -brkpts_type ${brkpt_type} -l_step_win ${l_step_win} -l_post_filt_win ${l_post_filter}
 ```
 
 <i>n_spline_coeffs</i> controls the number of knots that are used to fit b-spline. It should not be set to a very high value as this may cause overfitting of the data.<br>
@@ -172,19 +177,19 @@ sparse_data=0
 pval_type=0
 
 ## bedGraph files:
-./bin/EpiSAFARI -get_significant_extrema bedGraphs ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data} ${pval_type}
-all_valleys_fp=bedGraphs/significant_valleys.bed
+./bin/EpiSAFARI -get_valleys -signal_dir bedGraphs -mmapp_dir ${mmap_dir} -genome_dir ${seq_dir} -max_signal_at_trough ${max_trough_sig} -min_signal_at_summit ${min_summit_sig} -f_min ${min_summit2trough_frac} -l_min ${min_summit2trough_dist} -l_max ${max_summit2trough_dist} -max_mmap ${min_multimapp} -max_qval 0.01 -sparse_profile ${sparse_data} -pval_type ${pval_type}
+all_valleys_fp=bedGraphs/significant_valleys.bed.gz
 
 ## mapped read files:
-./bin/EpiSAFARI -get_significant_extrema processed_reads/dedup ${max_trough_sig} ${min_summit_sig} ${min_summit2trough_frac} ${min_summit2trough_dist} ${max_summit2trough_dist} ${mmap_dir} ${min_multimapp} ${seq_dir} 0.1 ${sparse_data} ${pval_type}
-all_valleys_fp=processed_reads/dedup/significant_valleys.bed
+./bin/EpiSAFARI -get_valleys -signal_dir processed_reads/dedup -mmapp_dir ${mmap_dir} -genome_dir ${seq_dir} -max_signal_at_trough ${max_trough_sig} -min_signal_at_summit ${min_summit_sig} -f_min ${min_summit2trough_frac} -l_min ${min_summit2trough_dist} -l_max ${max_summit2trough_dist} -max_mmap ${min_multimapp} -max_qval 0.01 -sparse_profile ${sparse_data} -pval_type ${pval_type}
+all_valleys_fp=processed_reads/dedup/significant_valleys.bed.gz
 
-# Filter: Remove valleys with FDR higher than log(0.05), hill scores lower than 0.99 and average multi-mappability higher than 1.2.
-cat ${all_valleys_fp} | awk {'if(NR==1){print $0};if($18<-3 && $10>=0.99 && $11>=0.99 && $8<1.2)print $0'} > sign.bed
+
+# Filter: Remove valleys with FDR higher than log(0.05), hill scores lower than 0.90 and average multi-mappability higher than 1.2.
+gzip -cd ${all_valleys_fp} | awk {'if(NR==1){print $0};if($18<-3 && $10>=0.90 && $11>=0.90 && $8<1.2)print $0'} > sign.bed
 
 # Merge valleys with dips closer than 200 base pairs.
 ./bin/EpiSAFARI -merge_valleys sign.bed 200 merged_sign.bed
-
 ```
 
 <h2>Valley Annotation</h2>
@@ -326,11 +331,34 @@ wget -c ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_19/genco
 gzip -cd gencode.v19.annotation.gff3.gz | awk 'BEGIN{FS="\t"}{if($3=="gene"){gene_start=$4;if($7=="-"){gene_start=$5;};split($9, arr, ";");for(i=1;i<=length(arr);i++){if (arr[i] ~/gene_name=/){gene_name=arr[i]}};print $1"\t"gene_start-10000"\t"gene_start+10000"\t"gene_name"\t.\t"$7}}' > promoters.bed
 
 # Assign the valleys to the gene promoters.
-EpiSAFARI -assign_valleys_2_regions promoters.bed merged_sign.bed valleys_2_promoters.bed
+./bin/EpiSAFARI -assign_valleys_2_regions promoters.bed merged_sign.bed valleys_2_promoters.bed
 
 # Sort the promoters with respect to number of valleys around promoter and get a list of the gene symbols.
 sort -n -k7,7 valleys_2_promoters.bed -r | head -n 200 | awk {'print $4'} | sort -u > genes_with_supervalleys.list
 ```
 
 Above code assigns the valleys to the promoters. The output file 'valleys_2_promoters.bed' contains the number (and the list) of valleys around the promoters of all the genes.
+
+<h2>Detection of Differential Valleys</h2>
+When there are multiple samples (different cell lines, samples generated under different conditions),  an important downstream analysis is comparison of the valleys detected in these samples. 
+
+EpiSAFARI can be used to compare the valleys in the two samples. For this, use the 2 sample comparison option. Below, we assume the GM12878 and K562 valleys are detected using above commands. We perform valley comparison as below:
+```
+# Compare samples.
+sample1_signal_dir=../GM12878/processed_reads/dedup
+sample1_valleys_fp=../GM12878/merged_sign.bed 
+sample2_signal_dir=../K562/processed_reads/dedup
+sample2_valleys_fp=../K562/merged_sign.bed 
+./bin/EpiSAFARI -get_2_sample_differential_valleys ${sample1_signal_dir} ${sample1_valleys_fp} ${sample2_signal_dir} ${sample2_valleys_fp} 0 2
+
+# Now we filter out the valleys with respect to p-value.
+awk '{if(NR>1 && $17<-10 && $18>-2){print $0}}' 2_sample_differential_stats.txt | sort -n -k17,17 > gm12878_specific_valleys.bed
+awk '{if(NR>1 && $18<-10 && $17>-2){print $0}}' 2_sample_differential_stats.txt | sort -n -k17,17 > k562_specific_valleys.bed
+```
+File named '2_sample_differential_stats.txt' contains the differential valley statistics in all the valleys pooled from GM12878 and K562 cell lines. This file is a tab-delimited file that contains significance and signals around all the valleys from the two samples. This file can be processed as above to filter valleys or it can be loaded into R and processed as a data frame.
+
+EpiSAFARI can be used to add annotations to the differential valleys ('2_sample_differential_stats.txt' file) using '-annotate_features' option:
+```
+./bin/EpiSAFARI -annotate_features 2_sample_differential_stats.txt gencode.v19.annotation.gff3.gz ${l_promoter} annotated_2_sample_differential_stats.txt
+```
 </html>

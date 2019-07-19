@@ -163,6 +163,7 @@ bool sort_regions_per_increasing_length(t_annot_region* region1, t_annot_region*
 bool sort_regions_per_decreasing_length(t_annot_region* region1, t_annot_region* region2);
 bool sort_regions_per_ends(t_annot_region* region1, t_annot_region* region2);
 bool sort_regions_per_score(t_annot_region* region1, t_annot_region* region2);
+bool sort_regions_per_dbl_score_decreasing(t_annot_region* region1, t_annot_region* region2);
 bool sort_regions_per_dbl_score(t_annot_region* region1, t_annot_region* region2);
 bool sort_regions_per_increasing_p_value(t_annot_region* reg1, t_annot_region* reg2);
 bool sort_regions_per_increasing_q_value(t_annot_region* reg1, t_annot_region* reg2);

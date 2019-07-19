@@ -16,7 +16,7 @@ struct t_read_line_sorting_info
 	char* read_line;
 };
 
-double* load_normalized_multimappability_profile(char* mapability_signal_profile_fp, int& l_mapability_profile);
+unsigned char* load_normalized_multimappability_profile(char* mapability_signal_profile_fp, int& l_mapability_profile);
 
 #define MAX_N_PAIRS (10)
 
@@ -89,7 +89,7 @@ void preprocess_PE_SAM_read_line(char* cur_line,
 	int& mapping_quality,
 	char* cigar_str);
 
-void buffer_per_nucleotide_profile_no_buffer(char* sorted_read_fp, const int l_extended_tag, 
+void buffer_per_nucleotide_profile_no_buffer(const char* sorted_read_fp, const int l_extended_tag, 
 	double* signal_profile_buffer, double* forward_strand_signal, double* reverse_strand_signal, 
 	int l_buffer, int& l_data);
 

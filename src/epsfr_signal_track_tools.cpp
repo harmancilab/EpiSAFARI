@@ -103,15 +103,10 @@ void dump_bedGraph_per_per_nucleotide_binary_profile(double* signal_profile_buff
 		//i_nuc++;
 	} // i_nuc loop.
 
-	//fprintf(f_op, "%s\t%d\t%d\t%lf\n", chrom, 
-	//			translate_coord(cur_block_start_i, CODEBASE_COORDS::start_base, BED_COORDS::start_base), 
-	//			translate_coord(i_nuc-1, CODEBASE_COORDS::end_base, BED_COORDS::end_base), 
-	//			cur_height);
-
-	fclose(f_op);
+	close_f(f_op, op_fp);
 }
 
-double* load_per_nucleotide_BGR_track(char* bgr_fp, int& l_profile)
+double* load_per_nucleotide_BGR_track(const char* bgr_fp, int& l_profile)
 {
 	FILE* f_bgr = NULL;
 	if (t_string::compare_strings(bgr_fp, "stdin"))
@@ -186,7 +181,7 @@ double* load_per_nucleotide_BGR_track(char* bgr_fp, int& l_profile)
 	}
 	else if (t_string::ends_with(bgr_fp, ".bgr.gz"))
 	{
-#ifdef WIN32
+#ifdef _WIN32
 		_pclose(f_bgr);
 #else 
 		pclose(f_bgr);
@@ -306,27 +301,12 @@ void dump_per_nucleotide_binary_profile(double* signal_profile, int l_profile, c
 	// Dump the data: Dump 0 based data.
 	fwrite(&(signal_profile[1]), sizeof(double), l_profile, f_op);
 
-	fclose(f_op);
+	close_f(f_op, op_fp);
 }
 
 double* load_per_nucleotide_binary_profile(char* binary_per_nucleotide_profile_fp, int& l_profile)
 {
-	FILE* f_prof = NULL;
-	if (t_string::ends_with(binary_per_nucleotide_profile_fp, ".bin.gz") || 
-		t_string::ends_with(binary_per_nucleotide_profile_fp, ".bin.gzip"))
-	{
-		char ungzip_cmd[1000];
-		sprintf(ungzip_cmd, "gzip -cd %s", binary_per_nucleotide_profile_fp);
-#ifdef WIN32
-		f_prof = _popen(ungzip_cmd, "r");
-#else 
-		f_prof = popen(ungzip_cmd, "r");
-#endif
-	}
-	else if(t_string::ends_with(binary_per_nucleotide_profile_fp, ".bin.gz"))
-	{
-		f_prof = open_f(binary_per_nucleotide_profile_fp, "rb");
-	}	
+	FILE* f_prof = open_f(binary_per_nucleotide_profile_fp, "rb");
 
 	if (f_prof == NULL)
 	{
@@ -346,20 +326,7 @@ double* load_per_nucleotide_binary_profile(char* binary_per_nucleotide_profile_f
 	// Following is to use the codebase indexing: 1 based indexing.
 	fread(&(signal_profile_buffer[1]), sizeof(double), l_profile, f_prof);
 	
-	//fclose(f_prof);
-	if (t_string::ends_with(binary_per_nucleotide_profile_fp, ".bin"))
-	{
-		fclose(f_prof);
-	}
-	else if (t_string::ends_with(binary_per_nucleotide_profile_fp, ".bin.gz") ||
-			t_string::ends_with(binary_per_nucleotide_profile_fp, ".bin.gzip"))
-	{
-#ifdef WIN32
-		_pclose(f_prof);
-#else 
-		pclose(f_prof);
-#endif
-	}
+	close_f(f_prof, binary_per_nucleotide_profile_fp);
 
 	return(signal_profile_buffer);
 }
@@ -383,3 +350,166 @@ double* get_zero_profile(int l_profile)
 
 	return(cur_profile);
 }
+
+char* load_header(char* fp)
+{
+	FILE* f = open_f(fp, "r");
+	char* header_str = getline(f);
+	fclose(f);
+
+	return(header_str);
+}
+
+vector<t_annot_region*>* load_signal_regs_BED(char* signal_regions_BED_fp, int& n_loaded_samples)
+{
+	vector<t_annot_region*>* regs_w_lines = load_BED_with_line_information(signal_regions_BED_fp);
+	vector<t_annot_region*>* signal_regs = new vector<t_annot_region*>();
+
+	n_loaded_samples = -1;
+	for (int i_reg = 0; i_reg < (int)regs_w_lines->size(); i_reg++)
+	{
+		t_annot_region* cur_sig_reg = duplicate_region(regs_w_lines->at(i_reg));
+		char* cur_reg_line = (char*)(regs_w_lines->at(i_reg)->data);
+
+		t_string_tokens* toks = t_string::tokenize_by_chars(cur_reg_line, "\t");
+
+		double* cur_sig_reg_sigs = new double[(int)toks->size() + 2];
+		for (int i_tok = 4; i_tok < (int)toks->size(); i_tok++)
+		{
+			cur_sig_reg_sigs[i_tok - 4] = atof(toks->at(i_tok)->str());
+		} // i_tok loop.
+		cur_sig_reg->name = t_string::copy_me_str(toks->at(3)->str());
+		cur_sig_reg->data = cur_sig_reg_sigs;
+
+		if (n_loaded_samples == -1)
+		{
+			n_loaded_samples = (int)toks->size() - 4;
+		}
+		else if (n_loaded_samples != (int)toks->size() - 4)
+		{
+			fprintf(stderr, "Could not match the number of loaded samples: %d, %d\n", n_loaded_samples, (int)toks->size() - 4);
+			exit(0);
+		}
+
+		signal_regs->push_back(cur_sig_reg);
+
+		t_string::clean_tokens(toks);
+		delete[] cur_reg_line;
+	} // i_reg loop.
+
+	delete_annot_regions(regs_w_lines);
+
+	return(signal_regs);
+}
+
+bool sort_signal_nodes_per_increasing_signal(t_signal_node* node1, t_signal_node* node2)
+{
+	return(node1->signal < node2->signal);
+}
+
+void quantile_normalize_signal_matrix(char* signal_regions_BED_fp, char* op_fp)
+{
+	int n_loaded_samples = 0;
+	fprintf(stderr, "Loading signal regions from %s\n", signal_regions_BED_fp);
+	vector<t_annot_region*>* signal_node_regs = load_signal_regs_BED(signal_regions_BED_fp, n_loaded_samples);
+	fprintf(stderr, "Loaded %d signal regions with %d samples.\n", (int)signal_node_regs->size(), n_loaded_samples);
+
+	// Following stores the signal level along samples.
+	vector<t_signal_node*>** per_sample_signal_nodes = new vector<t_signal_node*>*[n_loaded_samples];
+	for (int i_s = 0; i_s < n_loaded_samples; i_s++)
+	{
+		per_sample_signal_nodes[i_s] = new vector<t_signal_node*>();
+	} // i_s loop.
+
+	for (int i_reg = 0; i_reg < (int)signal_node_regs->size(); i_reg++)
+	{
+		double* cur_reg_per_sample_sigs = (double*)(signal_node_regs->at(i_reg)->data);
+		vector<t_signal_node*>* cur_reg_per_sample_nodes = new vector<t_signal_node*>();
+
+		for (int i_s = 0; i_s < n_loaded_samples; i_s++)
+		{
+			t_signal_node* cur_sample_node = new t_signal_node();
+			cur_sample_node->i_reg = -1; // This is the rank that will be assigned later.
+			cur_sample_node->signal = cur_reg_per_sample_sigs[i_s];
+
+			cur_reg_per_sample_nodes->push_back(cur_sample_node);
+
+			// Add the node to per sample signal nodes, too.
+			per_sample_signal_nodes[i_s]->push_back(cur_sample_node);
+		} // i_s loop.
+
+		signal_node_regs->at(i_reg)->data = cur_reg_per_sample_nodes;
+
+		delete[] cur_reg_per_sample_sigs;
+	} // i_reg loop.
+
+	  // Assign the ranks.
+	fprintf(stderr, "Assigning ranks.\n");
+	for (int i_s = 0; i_s < n_loaded_samples; i_s++)
+	{
+		sort(per_sample_signal_nodes[i_s]->begin(), per_sample_signal_nodes[i_s]->end(), sort_signal_nodes_per_increasing_signal);
+
+		for (int rank_i = 0; rank_i < (int)per_sample_signal_nodes[i_s]->size(); rank_i++)
+		{
+			per_sample_signal_nodes[i_s]->at(rank_i)->i_reg = rank_i;
+		} // rank_i loop.
+	} // i_s loop.
+
+	fprintf(stderr, "Assigning per rank signals.\n");
+	double* per_rank_avg_signals = new double[(int)signal_node_regs->size() + 2];
+	for (int rank_i = 0; rank_i < (int)signal_node_regs->size(); rank_i++)
+	{
+		double cur_rank_total_sig = 0;
+		for (int i_s = 0; i_s < n_loaded_samples; i_s++)
+		{
+			cur_rank_total_sig += per_sample_signal_nodes[i_s]->at(rank_i)->signal;
+		} // i_s loop.
+
+		per_rank_avg_signals[rank_i] = cur_rank_total_sig / n_loaded_samples;
+	} // rank_i loop.
+
+	fprintf(stderr, "Assigning normalized signals.\n");
+	for (int i_s = 0; i_s < n_loaded_samples; i_s++)
+	{
+		for (int rank_i = 0; rank_i < (int)per_sample_signal_nodes[i_s]->size(); rank_i++)
+		{
+			per_sample_signal_nodes[i_s]->at(rank_i)->signal = per_rank_avg_signals[rank_i];
+		} // rank_i loop.
+	} // i_s loop.
+
+	vector<char*>* header_col_ids = t_string::copy_tokens_2_strs(t_string::tokenize_by_chars(load_header(signal_regions_BED_fp), "\t"));
+
+	// Assign ranks to each entry.
+	fprintf(stderr, "Saving normalized signals to %s.\n", op_fp);
+	FILE* f_op = open_f(op_fp, "w");
+	for (int col_i = 0; col_i < (int)header_col_ids->size(); col_i++)
+	{
+		if (col_i > 0)
+		{
+			fprintf(f_op, "\t%s", header_col_ids->at(col_i));
+		}
+		else
+		{
+			fprintf(f_op, "%s", header_col_ids->at(col_i));
+		}
+	} // col_i loop.
+	fprintf(f_op, "\n");
+
+	for (int i_reg = 0; i_reg < (int)signal_node_regs->size(); i_reg++)
+	{
+		fprintf(f_op, "%s\t%d\t%d\t%s", signal_node_regs->at(i_reg)->chrom,
+			translate_coord(signal_node_regs->at(i_reg)->start, CODEBASE_COORDS::start_base, BED_COORDS::start_base),
+			translate_coord(signal_node_regs->at(i_reg)->end, CODEBASE_COORDS::end_base, BED_COORDS::end_base),
+			signal_node_regs->at(i_reg)->name);
+
+		vector<t_signal_node*>* cur_reg_per_sample_nodes = (vector<t_signal_node*>*)(signal_node_regs->at(i_reg)->data);
+		for (int i_s = 0; i_s < n_loaded_samples; i_s++)
+		{
+			fprintf(f_op, "\t%lf", cur_reg_per_sample_nodes->at(i_s)->signal);
+		} // i_s loop.
+
+		fprintf(f_op, "\n");
+	} // i_reg loop.
+	fclose(f_op);
+}
+

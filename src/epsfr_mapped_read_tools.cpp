@@ -33,7 +33,7 @@ bool sort_read_line_info(t_read_line_sorting_info* info1, t_read_line_sorting_in
 }
 
 // In order to ignore extended tag length, set it to non-positive value.
-void buffer_per_nucleotide_profile_no_buffer(char* sorted_read_fp, const int l_extended_tag,
+void buffer_per_nucleotide_profile_no_buffer(const char* sorted_read_fp, const int l_extended_tag,
 	double* signal_profile_buffer, double* forward_strand_signal, double* reverse_strand_signal,
 	int l_buffer, int& l_data)
 {
@@ -338,52 +338,19 @@ vector<char*>* sort_bucket_read_lines(char* bucket_fp)
 }
 
 
-double* load_normalized_multimappability_profile(char* mapability_signal_profile_fp, int& l_mapability_profile)
+unsigned char* load_normalized_multimappability_profile(char* mapability_signal_profile_fp, int& l_mapability_profile)
 {
-	double* mapability_signal_profile = NULL;
-
 	if(!check_file(mapability_signal_profile_fp))
 	{
 		l_mapability_profile = 0;
 		return(NULL);
 	}
 
-#ifdef __DOUBLE_MAPPABILITY__
-	// Load the mapability map signal profile, do filtering.
-	mapability_signal_profile = load_per_nucleotide_binary_profile(mapability_signal_profile_fp, l_mapability_profile);
-
-	// Do mapability aware median filtering on the current signal profile.
-if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
-	fprintf(stderr, "Scaling the mapability map with %d.\n", l_read_mapability_signal * 2);
-
-	int mapability_scaling = l_read * 2;
-	for(int i = 1; i <= l_mapability_profile; i++)
-	{
-		mapability_signal_profile[i] /= mapability_scaling;
-	} // i loop.
-#elif defined(__UCHAR_MAPPABILITY__)
 	// Following loads the mappability signal profile from the char version of the multi-mappability profile.
 	// Load the mapability map signal profile, do filtering.
 	unsigned char* mapability_signal_char_profile = load_per_nucleotide_binary_uchar_profile(mapability_signal_profile_fp, l_mapability_profile);
-	mapability_signal_profile = new double[l_mapability_profile + 2];
-	for(int i = 1; i <= l_mapability_profile; i++)
-	{
-		unsigned char unsigned_char_val = (unsigned char)(mapability_signal_char_profile[i]);
-		mapability_signal_profile[i] = (double)(unsigned_char_val);
-		mapability_signal_profile[i] /= 100;
 
-		if(mapability_signal_profile[i] < 0)
-		{
-			fprintf(stderr, "Sanity check failed.\n");
-			exit(0);
-		}
-	} // i loop.
-	delete [] mapability_signal_char_profile;
-#else
-	#error "Must define the type of mappability."
-#endif
-
-	return(mapability_signal_profile);
+	return(mapability_signal_char_profile);
 }
 
 bool sort_read_lines(char* read1, char* read2)
@@ -477,7 +444,7 @@ void preprocess_mapped_reads_file(char* mrf_fp, char* parsed_reads_op_dir, void 
 		for (int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
 		{
 			char new_fn[1000];
-			sprintf(new_fn, "%s/%s_mapped_reads.txt", parsed_reads_op_dir, chr_ids->at(i_chr));
+			sprintf(new_fn, "%s/%s_mapped_reads.txt.gz", parsed_reads_op_dir, chr_ids->at(i_chr));
 			fprintf(stderr, "Opening %s for pooling.\n", new_fn);
 			if (!check_file(new_fn))
 			{
@@ -487,6 +454,7 @@ void preprocess_mapped_reads_file(char* mrf_fp, char* parsed_reads_op_dir, void 
 			}
 			else
 			{
+				frag_fps->push_back(t_string::copy_me_str(new_fn));
 				frag_f_ptrs->push_back(open_f(new_fn, "a"));
 			}
 		} // i_chr loop.
@@ -537,7 +505,7 @@ void preprocess_mapped_reads_file(char* mrf_fp, char* parsed_reads_op_dir, void 
 				i_chr = t_string::get_i_str(chr_ids, chrom);
 
 				char new_fn[10000];
-				sprintf(new_fn, "%s/%s_mapped_reads.txt", parsed_reads_op_dir, chrom);
+				sprintf(new_fn, "%s/%s_mapped_reads.txt.gz", parsed_reads_op_dir, chrom);
 
 				// Does the file exist? If so, use the file, do not overwrite.
 				frag_f_ptrs->push_back(open_f(new_fn, "w"));
@@ -569,32 +537,23 @@ void preprocess_mapped_reads_file(char* mrf_fp, char* parsed_reads_op_dir, void 
 		delete[] cur_line;
 	} // file reading loop.
 
-	  // (Re)Dump the chromosome id list.
+	// (Re)Dump the chromosome id list.
 	FILE* f_chrs = open_f(chr_ids_fp, "w");
-	for (int i_chr = 0; i_chr< (int)chr_ids->size(); i_chr++)
+	for (int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
 	{
 		fprintf(f_chrs, "%s\n", chr_ids->at(i_chr));
 	} // i_chr loop.
 
 	fclose(f_chrs);
 
-	//// Close fragment file pointers.
-	//for (int i_f = 0; i_f < (int)frag_f_ptrs->size(); i_f++)
-	//{
-	//	fclose(frag_f_ptrs->at(i_f));
+	// Close fragment file pointers.
+	for (int i_f = 0; i_f < (int)frag_f_ptrs->size(); i_f++)
+	{
+		close_f(frag_f_ptrs->at(i_f), frag_fps->at(i_f));
+		delete[] frag_fps->at(i_f);
+	} // i_f loop.
 
-	//	// Compress and delete.
-	//	char comp_frag_fp[1000];
-	//	sprintf(comp_frag_fp, "%s.gz", frag_fps->at(i_f));
-	//	fprintf(stderr, "Compressing to %s\n", comp_frag_fp);
-	//	compressFile(frag_fps->at(i_f), comp_frag_fp);
-	//	delete_file(frag_fps->at(i_f));
-
-	//	delete[] frag_fps->at(i_f);
-	//} // i_f loop.
-
-	//delete frag_fps;
-
+	delete frag_fps;
 	delete frag_f_ptrs;	
 
 	  // Unload/close the mapped read file.
