@@ -428,6 +428,13 @@ void get_2_sample_differential_valleys(char* sample1_valleys_bed_fp, char* sampl
 			sample1_valleys_bed_fp, sample1_dir,
 			sample2_valleys_bed_fp, sample2_dir);
 
+	if (!check_file(sample1_valleys_bed_fp) ||
+		!check_file(sample2_valleys_bed_fp))
+	{
+		fprintf(stderr, "Could not open the valleys from %s, %s\n", sample1_valleys_bed_fp, sample2_valleys_bed_fp);
+		exit(0);
+	}
+
 	// Report the significance method.
 	if (extrema_statistic_defn->p_val_type == VALLEY_SIGNIFICANCE_BINOMIAL_INTERSECTED_NULLS)
 	{
@@ -1879,6 +1886,12 @@ vector<t_annot_region*>* merge_overlapping_valleys_per_pval_minimization(char* v
 {
 	// Read the header.
 	FILE* f_valleys = open_f(valleys_BED_fp, "r");
+	if (f_valleys == NULL)
+	{
+		fprintf(stderr, "Could not load the valleys from %s\n", valleys_BED_fp);
+		exit(0);
+	}
+
 	char* header_line = getline(f_valleys);
 	if (header_line[0] != '#')
 	{
