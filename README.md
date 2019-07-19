@@ -352,8 +352,8 @@ sample2_valleys_fp=./K562/merged_sign.bed
 ./bin/EpiSAFARI -get_2_sample_differential_valleys ${sample1_valleys_fp} ${sample1_signal_dir} ${sample2_valleys_fp} ${sample2_signal_dir} 0 2
 
 # Now we filter out the valleys with respect to p-value.
-awk '{if(NR>1 && $17<-10 && $18>-2){print $0}}' 2_sample_differential_stats.txt | sort -n -k17,17 > gm12878_specific_valleys.bed
-awk '{if(NR>1 && $18<-10 && $17>-2){print $0}}' 2_sample_differential_stats.txt | sort -n -k17,17 > k562_specific_valleys.bed
+awk '{if(NR==1)print $0;if(NR>1 && $17<-10 && $18>-2){print $0}}' 2_sample_differential_stats.txt > gm12878_specific_valleys.bed
+awk '{if(NR==1)print $0;if(NR>1 && $18<-10 && $17>-2){print $0}}' 2_sample_differential_stats.txt > k562_specific_valleys.bed
 ```
 File named '2_sample_differential_stats.txt' contains the differential valley statistics in all the valleys pooled from GM12878 and K562 cell lines. This file is a tab-delimited file that contains significance and signals around all the valleys from the two samples. This file can be processed as above to filter valleys or it can be loaded into R and processed as a data frame.
 
