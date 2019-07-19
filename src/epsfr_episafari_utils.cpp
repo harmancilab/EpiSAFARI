@@ -1982,8 +1982,6 @@ vector<t_annot_region*>* merge_overlapping_valleys_per_pval_minimization(char* v
 			// Update i_reg.
 			i_reg = j_reg;
 		} // i_reg loop.
-
-		fprintf(stderr, "\n");
 	} // i_chr loop.
 
 	fprintf(stderr, "Merged into %d valleys.\n", (int)merged_significant_valleys->size());
