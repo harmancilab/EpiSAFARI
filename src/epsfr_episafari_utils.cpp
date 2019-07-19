@@ -1558,7 +1558,12 @@ vector<t_annot_region*>* get_significant_extrema_per_signal_profile(const char* 
 	{
 		if (i_ext % 1000 == 0)
 		{
-			fprintf(stderr, "Processing %d. extrema        \r", i_ext);
+			fprintf(stderr, "Processing %d. extrema.               \r", i_ext);
+		}
+
+		if (i_ext == all_extrema_regs->size() - 1)
+		{
+			fprintf(stderr, "\n");
 		}
 
 		// Process minima: For every minima, check if it is a significant minima.
@@ -1927,7 +1932,10 @@ vector<t_annot_region*>* merge_overlapping_valleys_per_pval_minimization(char* v
 
 			int j_reg = i_reg;
 
-			fprintf(stderr, "@%d-%d-%d: %lf           \r", significant_valleys->at(i_reg)->start, i_reg_min_posn, significant_valleys->at(i_reg)->end, i_reg_p_val);
+			if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
+			{
+				fprintf(stderr, "@%d-%d-%d: %lf                               \r", significant_valleys->at(i_reg)->start, i_reg_min_posn, significant_valleys->at(i_reg)->end, i_reg_p_val);
+			}
 
 			t_annot_region* most_significant_valley = NULL;
 			double most_significant_valley_p_val = 1000;
@@ -1945,8 +1953,11 @@ vector<t_annot_region*>* merge_overlapping_valleys_per_pval_minimization(char* v
 				{
 					if (i_reg_min_posn != j_reg_min_posn)
 					{
-						fprintf(stderr, "Nearby Valley @ %d-%d-%d: %lf                     \r",
-							significant_valleys->at(j_reg)->start, j_reg_min_posn, significant_valleys->at(j_reg)->end, j_reg_p_val);
+						if (__DUMP_EPISAFARI_UTILS_MESSAGES__)
+						{
+							fprintf(stderr, "Nearby Valley @ %d-%d-%d: %lf                               \r",
+								significant_valleys->at(j_reg)->start, j_reg_min_posn, significant_valleys->at(j_reg)->end, j_reg_p_val);
+						}
 					}
 
 					// Check if this valley is more significant than previous overlapping valleys.
