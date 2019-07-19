@@ -2,7 +2,7 @@ all: EpiSAFARI
 
 CC = g++
 comp_flags = -c -O2 -Wall
-gsl_flags = -lgsl -lgslcblas -lz
+gsl_flags = -lgsl -lgslcblas
 exec_name = ./bin/EpiSAFARI
 LIB_DIR = ./src
 
@@ -17,6 +17,8 @@ LIB_DIR = ./src
 
 objs = \
 ${LIB_DIR}/epsfr_main.o \
+${LIB_DIR}/epsfr_ansi_cli.o \
+${LIB_DIR}/epsfr_config.o \
 ${LIB_DIR}/epsfr_episafari_utils.o \
 ${LIB_DIR}/epsfr_gsl_polyfit_utils.o \
 ${LIB_DIR}/epsfr_signal_track_tools.o \
