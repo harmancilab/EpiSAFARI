@@ -36,7 +36,7 @@ ${LIB_DIR}/epsfr_utils.o \
 ${LIB_DIR}/epsfr_xlog_math.o 
 
 EpiSAFARI: ${objs}
-	${CC} -O2 ${gsl_flags} -o ${exec_name} ${objs}
+	${CC} -O2 -o ${exec_name} ${objs} ${gsl_flags}
 
 clean:
 	rm -f ${objs} ${exec_name} 
